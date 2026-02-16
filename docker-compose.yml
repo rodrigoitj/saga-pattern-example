@@ -1,0 +1,100 @@
+name: saga
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: saga-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: saga_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - saga-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  booking-api:
+    image: booking-api:latest
+    container_name: booking-api
+    build:
+      context: .
+      dockerfile: ./src/Services/Booking.API/Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ConnectionStrings__DefaultConnection=Host=postgres;Database=BookingDb;Username=postgres;Password=postgres;Port=5432
+      - Services__FlightServiceUrl=http://flight-api:8080
+      - Services__HotelServiceUrl=http://hotel-api:8080
+      - Services__CarServiceUrl=http://car-api:8080
+    ports:
+      - "5001:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - saga-network
+
+  flight-api:
+    image: flight-api:latest
+    container_name: flight-api
+    build:
+      context: .
+      dockerfile: ./src/Services/Flight.API/Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ConnectionStrings__DefaultConnection=Host=postgres;Database=FlightDb;Username=postgres;Password=postgres;Port=5432
+    ports:
+      - "5002:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - saga-network
+
+  hotel-api:
+    image: hotel-api:latest
+    container_name: hotel-api
+    build:
+      context: .
+      dockerfile: ./src/Services/Hotel.API/Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ConnectionStrings__DefaultConnection=Host=postgres;Database=HotelDb;Username=postgres;Password=postgres;Port=5432
+    ports:
+      - "5003:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - saga-network
+
+  car-api:
+    image: car-api:latest
+    container_name: car-api
+    build:
+      context: .
+      dockerfile: ./src/Services/Car.API/Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ConnectionStrings__DefaultConnection=Host=postgres;Database=CarDb;Username=postgres;Password=postgres;Port=5432
+    ports:
+      - "5004:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - saga-network
+
+volumes:
+  postgres_data:
+
+networks:
+  saga-network:
+    driver: bridge
