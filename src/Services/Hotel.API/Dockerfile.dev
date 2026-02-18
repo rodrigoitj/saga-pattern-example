@@ -1,0 +1,28 @@
+# Development Dockerfile with hot reload support
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS development
+WORKDIR /src
+
+# Copy project files
+COPY ["src/Services/Hotel.API/Hotel.API.csproj", "Services/Hotel.API/"]
+COPY ["src/Common/Domain/Shared.Domain.csproj", "Common/Domain/"]
+COPY ["src/Common/Shared/Shared.Infrastructure.csproj", "Common/Shared/"]
+
+# Restore dependencies
+RUN dotnet restore "Services/Hotel.API/Hotel.API.csproj"
+
+# Copy all source code
+COPY ["src/Services/Hotel.API/", "Services/Hotel.API/"]
+COPY ["src/Common/", "Common/"]
+
+# Set working directory to the API project
+WORKDIR /src/Services/Hotel.API
+
+# Expose ports (app + debugger)
+EXPOSE 5003
+EXPOSE 5013
+
+# Enable polling file watcher for Docker
+ENV DOTNET_USE_POLLING_FILE_WATCHER=true
+
+# Run with hot reload enabled - ASPNETCORE_URLS from docker-compose will override this
+ENTRYPOINT ["dotnet", "watch", "run", "--no-restore"]

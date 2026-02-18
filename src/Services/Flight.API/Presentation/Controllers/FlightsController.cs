@@ -8,11 +8,9 @@ using Flight.API.Application.Queries;
 
 [ApiController]
 [Route("api/[controller]")]
-public class FlightsController : ControllerBase
+public class FlightsController(IMediator mediator) : ControllerBase
 {
-    private readonly IMediator _mediator;
-
-    public FlightsController(IMediator mediator) => _mediator = mediator;
+    private readonly IMediator _mediator = mediator;
 
     [HttpPost]
     [ProducesResponseType(typeof(FlightBookingResponseDto), StatusCodes.Status201Created)]

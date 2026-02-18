@@ -1,0 +1,71 @@
+# Development override - extends docker-compose.yml
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
+
+services:
+  postgres:
+    container_name: saga-dev-postgres
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+
+  booking-api:
+    image: booking-api:dev
+    container_name: booking-api-dev
+    build:
+      dockerfile: ./src/Services/Booking.API/Dockerfile.dev
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:5001
+    ports:
+      - "6001:5001"
+      - "5011:5011"  # Debug port
+    volumes:
+      - ./src/Services/Booking.API:/src/Services/Booking.API
+      - ./src/Common:/src/Common
+
+  flight-api:
+    image: flight-api:dev
+    container_name: flight-api-dev
+    build:
+      dockerfile: ./src/Services/Flight.API/Dockerfile.dev
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:5002
+    ports:
+      - "6002:5002"
+      - "5012:5012"  # Debug port
+    volumes:
+      - ./src/Services/Flight.API:/src/Services/Flight.API
+      - ./src/Common:/src/Common
+
+  hotel-api:
+    image: hotel-api:dev
+    container_name: hotel-api-dev
+    build:
+      dockerfile: ./src/Services/Hotel.API/Dockerfile.dev
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:5003
+    ports:
+      - "6003:5003"
+      - "5013:5013"  # Debug port
+    volumes:
+      - ./src/Services/Hotel.API:/src/Services/Hotel.API
+      - ./src/Common:/src/Common
+
+  car-api:
+    image: car-api:dev
+    container_name: car-api-dev
+    build:
+      dockerfile: ./src/Services/Car.API/Dockerfile.dev
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:5004
+    ports:
+      - "6004:5004"
+      - "5014:5014"  # Debug port
+    volumes:
+      - ./src/Services/Car.API:/src/Services/Car.API
+      - ./src/Common:/src/Common
+
+volumes:
+  postgres_dev_data:

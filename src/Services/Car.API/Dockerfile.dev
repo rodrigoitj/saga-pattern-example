@@ -1,0 +1,28 @@
+# Development Dockerfile with hot reload support
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS development
+WORKDIR /src
+
+# Copy project files
+COPY ["src/Services/Car.API/Car.API.csproj", "Services/Car.API/"]
+COPY ["src/Common/Domain/Shared.Domain.csproj", "Common/Domain/"]
+COPY ["src/Common/Shared/Shared.Infrastructure.csproj", "Common/Shared/"]
+
+# Restore dependencies
+RUN dotnet restore "Services/Car.API/Car.API.csproj"
+
+# Copy all source code
+COPY ["src/Services/Car.API/", "Services/Car.API/"]
+COPY ["src/Common/", "Common/"]
+
+# Set working directory to the API project
+WORKDIR /src/Services/Car.API
+
+# Expose ports (app + debugger)
+EXPOSE 5004
+EXPOSE 5014
+
+# Enable polling file watcher for Docker
+ENV DOTNET_USE_POLLING_FILE_WATCHER=true
+
+# Run with hot reload enabled - ASPNETCORE_URLS from docker-compose will override this
+ENTRYPOINT ["dotnet", "watch", "run", "--no-restore"]

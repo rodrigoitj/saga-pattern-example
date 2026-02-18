@@ -135,6 +135,8 @@ public class BookingStep
     public SagaStepStatus Status { get; set; }
     public Guid ExternalId { get; set; }
     public string? ErrorMessage { get; set; }
+    
+    public Booking? Booking { get; set; }
 }
 
 public enum SagaStepType

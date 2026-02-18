@@ -3,12 +3,23 @@
 ## 5-Minute Setup (Local Development)
 
 ### Prerequisites Check
+
+**Option 1: Docker (Recommended)**
+- [ ] Docker Desktop installed and running
+- [ ] Git installed (for source control)
+- [ ] Visual Studio Code (for debugging)
+
+**Option 2: Local Development**
 - [ ] .NET 8.0 SDK installed (`dotnet --version`)
 - [ ] PostgreSQL installed and running
 - [ ] Git installed (for source control)
 - [ ] Visual Studio Code or Visual Studio
 
 ### Database Setup (2 minutes)
+
+**If using Docker (Recommended):** Database is created automatically - skip this step!
+
+**If running locally without Docker:**
 ```bash
 # Option 1: Using SQL Client
 psql -U postgres -c "CREATE DATABASE BookingDb;"
@@ -22,7 +33,25 @@ psql -U postgres -c "CREATE DATABASE CarDb;"
 # 3. Create → Database (repeat 4 times)
 ```
 
-### Clone & Build (2 minutes)
+### Run Services with Docker (RECOMMENDED - 1 minute)
+```bash
+# Navigate to project root
+cd d:\source\saga-pattern-example
+
+# Start all services with Docker Compose (Development mode with Swagger)
+docker-compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+
+# Or run in detached mode (background)
+docker-compose -f docker-compose.yml -f docker-compose.dev.yml up --build -d
+
+# View logs
+docker-compose -f docker-compose.yml -f docker-compose.dev.yml logs -f
+
+# Stop services
+docker-compose -f docker-compose.yml -f docker-compose.dev.yml down
+```
+
+### Alternative: Run Services Locally (without Docker)
 ```bash
 # Navigate to your projects folder
 cd d:\source\saga-pattern-example
@@ -32,30 +61,33 @@ dotnet restore
 
 # Build solution
 dotnet build
-```
 
-### Run Services (1 minute)
-```bash
+# Set environment variable (PowerShell)
+$env:ASPNETCORE_ENVIRONMENT = "Development"
+
 # Terminal 1: Booking Service
-cd src/Services/Booking.API && dotnet run
+cd src/Services/Booking.API; dotnet run
 
-# Terminal 2: Flight Service
-cd src/Services/Flight.API && dotnet run
+# Terminal 2: Flight Service (new terminal)
+$env:ASPNETCORE_ENVIRONMENT = "Development"
+cd src/Services/Flight.API; dotnet run
 
-# Terminal 3: Hotel Service
-cd src/Services/Hotel.API && dotnet run
+# Terminal 3: Hotel Service (new terminal)
+$env:ASPNETCORE_ENVIRONMENT = "Development"
+cd src/Services/Hotel.API; dotnet run
 
-# Terminal 4: Car Service
-cd src/Services/Car.API && dotnet run
-
-# Or in Visual Studio: Set all 4 as startup projects
+# Terminal 4: Car Service (new terminal)
+$env:ASPNETCORE_ENVIRONMENT = "Development"
+cd src/Services/Car.API; dotnet run
 ```
 
 ### Verify Installation (Open in Browser)
-- [ ] http://localhost:5001/swagger (Booking API)
-- [ ] http://localhost:5002/swagger (Flight API)  
-- [ ] http://localhost:5003/swagger (Hotel API)
-- [ ] http://localhost:5004/swagger (Car API)
+- [ ] http://localhost:5001/swagger (Booking API) ✅
+- [ ] http://localhost:5002/swagger (Flight API) ✅
+- [ ] http://localhost:5003/swagger (Hotel API) ✅
+- [ ] http://localhost:5004/swagger (Car API) ✅
+
+**Note:** If you see 404 errors, ensure you're using both compose files: `-f docker-compose.yml -f docker-compose.dev.yml`
 
 ---
 
@@ -111,7 +143,8 @@ src/Common/
 ## 📖 Documentation Quick Links
 
 | Need | Read This |
-|------|-----------|
+|---Docker Development** | DOCKER_DEV_GUIDE.md ⭐ |
+| **---|-----------|
 | **Overview** | README.md |
 | **Setup help** | GETTING_STARTED.md |
 | **Architecture** | ARCHITECTURE.md |
@@ -121,22 +154,106 @@ src/Common/
 
 ---
 
-## 🐳 Docker Alternative (Skip Database Setup)
+## 🐳 Docker Development Features
 
+### What's Included
+✅ **Hot Reload** - Code changes auto-reload in running containers  
+✅ **Swagger UI** - Enabled in Development mode  
+✅ **PostgreSQL** - Automatic database setup  
+✅ **Volume Mounts** - Edit code without rebuilding  
+✅ **Debug Support** - Attach VS Code debugger to containers  
+
+### Common Docker Commands
 ```bash
-# Single command to run everything
-docker-compose up -d
+# Start services
+docker-compose -f docker-compose.dev.yml up -d
 
-# Verify
-docker-compose ps
+# View logs (all services)
+docker-compose -f docker-compose.dev.yml logs -f
 
-# Access services (same URLs)
-# - Booking: http://localhost:5001
-# etc.
+# View logs (specific service)
+docker-compose -f docker-compose.dev.yml logs -f flight-api
 
-# Cleanup
-docker-compose down
+# Restart a service
+dockSwagger returns 404 error
+**Problem:** `Request reached the end of the middleware pipeline`  
+**Solution:** 
+- **Using Docker:** Use both compose files (dev overrides production):
+```bash
+docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d
 ```
+- **Running locally:** Set environment variable:
+```powershell
+$env:ASPNETCORE_ENVIRONMENT = "Development"
+```
+
+### Docker: Port already in use
+```bash
+# Find process using the port
+netstat -ano | findstr :5001
+
+# Kill the process (replace PID with actual process ID)
+taskkill /PID <PID> /F
+
+# Or stop conflicting Docker containers
+docker-compose -f docker-compose.yml -f docker-compose.dev.yml down
+```
+
+### Docker: Container won't start
+```bash
+# Check container logs
+docker-compose -f docker-compose.yml -f docker-compose.dev.yml logs flight-api
+
+# Rebuild from scratch
+docker-compose -f docker-compose.yml -f docker-compose.dev.yml down
+docker-compose -f docker-compose.yml -f docker-compose.dev.yml build --no-cache
+docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
+```
+
+### Docker: Database connection issues
+```bash
+# Wait for PostgreSQL to be ready
+docker-compose -f docker-compose.yml -f docker-compose.dev.yml logs postgres
+
+# Check if postgres is healthy
+docker inspect saga-dev-postgres --format='{{.State.Health.Status}}'
+
+# Should show: healthy
+```
+
+### "Connection refused" error (Local Development)
+- [ ] PostgreSQL is running
+- [ ] Connection string is correct (check appsettings.Development.json)
+- [ ] Database names match your setup
+# Stop and remove volumes
+docker-compose -f docker-compose.dev.yml down -v
+
+# Check running containers
+docker-compose -f docker-compose.dev.yml ps
+
+# Execute commands in container
+docker exec -it flight-api-dev /bin/bash
+```
+
+### Debugging in VS Code
+1. Start services: `docker-compose -f docker-compose.dev.yml up -d`
+2. Open VS Code Run and Debug (Ctrl+Shift+D)
+3. Select "Docker: Attach to Flight API" (or any service)
+4. Set breakpoints in your code
+5. Make API calls - debugger will hit breakpoints
+
+**Note:** First attach may be slow while debugger tools install in container.
+
+### Production vs Development
+
+| Feature | docker-compose.yml | docker-compose.dev.yml |
+|---------|-------------------|------------------------|
+| Environment | Production | Development |
+| Swagger | ❌ Disabled | ✅ Enabled |
+| Hot Reload | ❌ No | ✅ Yes |
+| Debugging | ❌ No | ✅ Yes |
+| Volume Mounts | ❌ No | ✅ Yes |
+| Image Size | Smaller | Larger (includes SDK) |
 
 ---
 
@@ -165,6 +282,23 @@ docker-compose down
 ## Common Tasks
 
 ### View Database Data
+
+**Using Docker:**
+```bash
+# Connect to PostgreSQL
+docker exec -it saga-dev-postgres psql -U postgres -d FlightDb
+
+# Show tables
+\dt
+
+# View booking data
+SELECT * FROM "FlightBookings";
+
+# Exit
+\q
+```
+
+**Running Locally:**
 ```sql
 -- Connect to PostgreSQL
 psql -U postgres -d BookingDb
@@ -177,9 +311,38 @@ SELECT * FROM "Bookings";
 ```
 
 ### Check Service Logs
+
+**Using Docker:**
+```bash
+# View all logs
+docker-compose -f docker-compose.yml -f docker-compose.dev.yml logs -f
+
+# View specific service
+docker-compose -f docker-compose.yml -f docker-compose.dev.yml logs -f flight-api
+```
+
+**Running Locally:**
 ```bash
 # In each service terminal, you'll see detailed logs
 # Look for INFO, WARNING, ERROR messages
+```
+
+### Restart a Service
+
+**Using Docker:**
+```bash
+# Restart specific service
+docker-compose -f docker-compose.yml -f docker-compose.dev.yml restart flight-api
+
+# Rebuild and restart
+docker-compose -f docker-compose.yml -f docker-compose.dev.yml up --build -d flight-api
+```
+
+**Running Locally:**
+```bash
+# Ctrl+C in the terminal, then run again
+cd src/Services/Flight.API
+dotnet run
 ```
 
 ### Test Saga Compensation
@@ -338,12 +501,26 @@ Check these in order:
 ## Final Tips
 
 ✨ **Pro Tips:**
-- Keep all 4 services running for full functionality
-- Use Swagger for easy API testing  
-- Check console logs for detailed execution flow
-- Database gets created automatically
-- Each service is independent - can run in isolation
+- **Docker Development (Recommended):**
+  - Use `docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d` for background operation
+  - Hot reload works automatically - just save your files
+  - Attach VS Code debugger for step-through debugging
+  - Check logs with `docker-compose -f docker-compose.yml -f docker-compose.dev.yml logs -f`
+  
+- **General:**
+  - Keep all 4 services running for full functionality
+  - Use Swagger for easy API testing  
+  - Database gets created automatically
+  - Each service is independent - can run in isolation
 
 🚀 **You're ready to go!**
 
-Start with README.md, then follow GETTING_STARTED.md, and you'll be up and running in minutes!
+**Quick Start with Docker:**
+```bash
+# One command to rule them all
+docker-compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+
+# Open http://localhost:5001/swagger in browser
+```
+
+For detailed Docker usage, see [DOCKER_DEV_GUIDE.md](DOCKER_DEV_GUIDE.md)

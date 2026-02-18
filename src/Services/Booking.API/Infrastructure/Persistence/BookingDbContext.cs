@@ -2,9 +2,9 @@ namespace Booking.API.Infrastructure.Persistence;
 
 using Microsoft.EntityFrameworkCore;
 using Booking.API.Domain.Entities;
-using Shared.Domain.Abstractions;
+using Shared.Infrastructure.Persistence;
 
-public class BookingDbContext : DbContext
+public class BookingDbContext : BaseApplicationDbContext
 {
     public BookingDbContext(DbContextOptions<BookingDbContext> options) : base(options)
     {
@@ -27,11 +27,6 @@ public class BookingDbContext : DbContext
             builder.Property(b => b.CreatedAt).IsRequired();
             builder.Property(b => b.UpdatedAt).IsRequired(false);
 
-            builder.HasMany<BookingStep>()
-                .WithOne()
-                .HasForeignKey(bs => bs.BookingId)
-                .OnDelete(DeleteBehavior.Cascade);
-
             builder.ToTable("Bookings");
         });
 
@@ -39,8 +34,13 @@ public class BookingDbContext : DbContext
         {
             builder.HasKey(bs => bs.Id);
             builder.Property(bs => bs.Id).ValueGeneratedOnAdd();
+            builder.Property(bs => bs.BookingId).IsRequired();
             builder.Property(bs => bs.StepType).HasConversion<string>();
             builder.Property(bs => bs.Status).HasConversion<string>();
+            builder.HasOne(bs => bs.Booking)
+                .WithMany()
+                .HasForeignKey(bs => bs.BookingId)
+                .OnDelete(DeleteBehavior.Cascade);
             builder.ToTable("BookingSteps");
         });
     }

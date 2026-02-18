@@ -5,6 +5,7 @@ using Booking.API.Infrastructure.Repositories;
 using Booking.API.Application.Mappings;
 using Booking.API.Application.Validators;
 using Shared.Domain.Abstractions;
+using Shared.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -19,6 +20,9 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
 
 builder.Services.AddDbContext<BookingDbContext>(options =>
     options.UseNpgsql(connectionString));
+
+builder.Services.AddScoped<BaseApplicationDbContext, BookingDbContext>();
+builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 
 // Add MediatR
 builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(Program).Assembly));
