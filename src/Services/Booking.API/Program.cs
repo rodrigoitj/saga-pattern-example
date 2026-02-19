@@ -1,14 +1,15 @@
-using Microsoft.EntityFrameworkCore;
-using FluentValidation;
-using Booking.API.Infrastructure.Persistence;
-using Booking.API.Infrastructure.Repositories;
 using Booking.API.Application.Mappings;
 using Booking.API.Application.Validators;
-using Shared.Domain.Abstractions;
-using Shared.Infrastructure.Persistence;
-using Saga.Orchestrator.Application.Services;
+using Booking.API.Infrastructure.Persistence;
+using Booking.API.Infrastructure.Repositories;
+using FluentValidation;
+using Microsoft.EntityFrameworkCore;
 using Saga.Orchestrator.Application.Interfaces;
+using Saga.Orchestrator.Application.Services;
 using Saga.Orchestrator.Infrastructure.HttpClients;
+using Shared.Domain.Abstractions;
+using Shared.Infrastructure.Extensions;
+using Shared.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -18,11 +19,11 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 // Add DbContext
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") 
+var connectionString =
+    builder.Configuration.GetConnectionString("DefaultConnection")
     ?? "Host=localhost;Database=BookingDb;Username=postgres;Password=postgres";
 
-builder.Services.AddDbContext<BookingDbContext>(options =>
-    options.UseNpgsql(connectionString));
+builder.Services.AddDbContext<BookingDbContext>(options => options.UseNpgsql(connectionString));
 
 builder.Services.AddScoped<BaseApplicationDbContext, BookingDbContext>();
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
@@ -32,6 +33,7 @@ builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(Progr
 
 // Add FluentValidation
 builder.Services.AddValidatorsFromAssemblyContaining<CreateBookingCommandValidator>();
+
 // builder.Services.AddFluentValidationAutoValidation();
 
 // Add AutoMapper
@@ -46,6 +48,9 @@ builder.Services.AddScoped<BookingSagaOrchestrator>();
 
 // Add logging
 builder.Services.AddLogging();
+
+// Add RabbitMQ (MassTransit)
+builder.Services.AddRabbitMqMessaging(builder.Configuration);
 
 var app = builder.Build();
 

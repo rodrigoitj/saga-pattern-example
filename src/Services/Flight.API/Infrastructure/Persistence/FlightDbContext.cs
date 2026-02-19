@@ -1,11 +1,12 @@
 namespace Flight.API.Infrastructure.Persistence;
 
-using Microsoft.EntityFrameworkCore;
 using Flight.API.Domain.Entities;
+using Microsoft.EntityFrameworkCore;
 
 public class FlightDbContext : DbContext
 {
-    public FlightDbContext(DbContextOptions<FlightDbContext> options) : base(options) { }
+    public FlightDbContext(DbContextOptions<FlightDbContext> options)
+        : base(options) { }
 
     public DbSet<FlightBooking> FlightBookings => Set<FlightBooking>();
 

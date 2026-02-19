@@ -4,6 +4,7 @@ using Hotel.API.Infrastructure.Persistence;
 using Hotel.API.Infrastructure.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Shared.Domain.Abstractions;
+using Shared.Infrastructure.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -24,6 +25,9 @@ builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(Progr
 builder.Services.AddValidatorsFromAssemblyContaining<Program>(); // Register validators
 builder.Services.AddAutoMapper(typeof(Program).Assembly);
 builder.Services.AddScoped<IRepository<HotelBooking>, HotelBookingRepository>();
+
+// Add RabbitMQ (MassTransit)
+builder.Services.AddRabbitMqMessaging(builder.Configuration);
 
 var app = builder.Build();
 
