@@ -2,6 +2,8 @@
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS development
 WORKDIR /src
 
+COPY ["NuGet.Config", "./"]
+
 # Install vsdbg for remote debugging
 RUN apt update && apt install unzip && \
     curl -sSL https://aka.ms/getvsdbgsh | /bin/sh /dev/stdin -v latest -l /vsdbg
@@ -12,6 +14,8 @@ COPY ["src/Common/Domain/Shared.Domain.csproj", "Common/Domain/"]
 COPY ["src/Common/Shared/Shared.Infrastructure.csproj", "Common/Shared/"]
 
 # Restore dependencies
+ENV NUGET_FALLBACK_PACKAGES=
+
 RUN dotnet restore "Services/Booking.API/Booking.API.csproj"
 
 # Copy all source code
@@ -28,8 +32,10 @@ EXPOSE 5011
 # Enable polling file watcher for Docker
 ENV DOTNET_USE_POLLING_FILE_WATCHER=true
 
-# Create startup script that conditionally enables watch mode
+# Create startup script that restores packages after volume mount and conditionally enables watch mode
 RUN echo '#!/bin/bash' > /entrypoint.sh && \
+    echo 'echo "Restoring NuGet packages..."' >> /entrypoint.sh && \
+    echo 'dotnet restore' >> /entrypoint.sh && \
     echo 'if [ "$ENABLE_WATCH" = "true" ]; then' >> /entrypoint.sh && \
     echo '  exec dotnet watch run --no-restore' >> /entrypoint.sh && \
     echo 'else' >> /entrypoint.sh && \

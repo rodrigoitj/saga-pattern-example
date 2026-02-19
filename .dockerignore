@@ -9,7 +9,7 @@
 *.user
 *.suo
 
-# Build outputs
+# Build outputs - MUST exclude to prevent Windows paths in containers
 **/bin/
 **/obj/
 **/out/

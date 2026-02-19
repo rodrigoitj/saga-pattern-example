@@ -1,9 +1,13 @@
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
+COPY ["NuGet.Config", "./"]
+
 COPY ["src/Services/Hotel.API/Hotel.API.csproj", "Services/Hotel.API/"]
 COPY ["src/Common/Domain/Shared.Domain.csproj", "Common/Domain/"]
 COPY ["src/Common/Shared/Shared.Infrastructure.csproj", "Common/Shared/"]
+
+ENV NUGET_FALLBACK_PACKAGES=
 
 RUN dotnet restore "Services/Hotel.API/Hotel.API.csproj"
 

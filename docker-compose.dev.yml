@@ -15,14 +15,11 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ENABLE_WATCH=false
-      # - ASPNETCORE_URLS=http://+:5001
     ports:
-      # - "6001:5001"
-      - "5011:5011"  # Debug port
+      - "5011:5011" # Debug port
     volumes:
       - ./src/Services/Booking.API:/src/Services/Booking.API
       - ./src/Common:/src/Common
-      # - ~/.vsdbg:/vsdbg  # Mount vsdbg from host for debugging
 
   flight-api:
     image: flight-api:dev
@@ -32,14 +29,11 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ENABLE_WATCH=false
-      # - ASPNETCORE_URLS=http://+:5002
     ports:
-      # - "6002:5002"
-      - "5012:5012"  # Debug port
+      - "5012:5012" # Debug port
     volumes:
       - ./src/Services/Flight.API:/src/Services/Flight.API
       - ./src/Common:/src/Common
-      # - ~/.vsdbg:/vsdbg  # Mount vsdbg from host for debugging
 
   hotel-api:
     image: hotel-api:dev
@@ -49,14 +43,11 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ENABLE_WATCH=false
-      # - ASPNETCORE_URLS=http://+:5003
     ports:
-      # - "6003:5003"
-      - "5013:5013"  # Debug port
+      - "5013:5013" # Debug port
     volumes:
       - ./src/Services/Hotel.API:/src/Services/Hotel.API
       - ./src/Common:/src/Common
-      # - ~/.vsdbg:/vsdbg  # Mount vsdbg from host for debugging
 
   car-api:
     image: car-api:dev
@@ -66,14 +57,11 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ENABLE_WATCH=false
-      # - ASPNETCORE_URLS=http://+:5004
     ports:
-      # - "6004:5004"
-      - "5014:5014"  # Debug port
+      - "5014:5014" # Debug port
     volumes:
       - ./src/Services/Car.API:/src/Services/Car.API
       - ./src/Common:/src/Common
-      # - ~/.vsdbg:/vsdbg  # Mount vsdbg from host for debugging
 
 volumes:
   postgres_dev_data:
