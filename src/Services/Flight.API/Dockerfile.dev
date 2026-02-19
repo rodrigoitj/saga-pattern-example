@@ -2,6 +2,10 @@
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS development
 WORKDIR /src
 
+# Install vsdbg for remote debugging
+RUN apt update && apt install unzip && \
+    curl -sSL https://aka.ms/getvsdbgsh | /bin/sh /dev/stdin -v latest -l /vsdbg
+    
 # Copy project files
 COPY ["src/Services/Flight.API/Flight.API.csproj", "Services/Flight.API/"]
 COPY ["src/Common/Domain/Shared.Domain.csproj", "Common/Domain/"]
@@ -18,11 +22,20 @@ COPY ["src/Common/", "Common/"]
 WORKDIR /src/Services/Flight.API
 
 # Expose ports (app + debugger)
-EXPOSE 5002
+# EXPOSE 5002
 EXPOSE 5012
 
 # Enable polling file watcher for Docker
 ENV DOTNET_USE_POLLING_FILE_WATCHER=true
 
-# Run with hot reload enabled - ASPNETCORE_URLS from docker-compose will override this
-ENTRYPOINT ["dotnet", "watch", "run", "--no-restore"]
+# Create startup script that conditionally enables watch mode
+RUN echo '#!/bin/bash' > /entrypoint.sh && \
+    echo 'if [ "$ENABLE_WATCH" = "true" ]; then' >> /entrypoint.sh && \
+    echo '  exec dotnet watch run --no-restore' >> /entrypoint.sh && \
+    echo 'else' >> /entrypoint.sh && \
+    echo '  exec dotnet run --no-restore' >> /entrypoint.sh && \
+    echo 'fi' >> /entrypoint.sh && \
+    chmod +x /entrypoint.sh
+
+# Run with conditional behavior - controlled by ENABLE_WATCH env var
+ENTRYPOINT ["/entrypoint.sh"]

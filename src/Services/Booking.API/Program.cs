@@ -6,6 +6,9 @@ using Booking.API.Application.Mappings;
 using Booking.API.Application.Validators;
 using Shared.Domain.Abstractions;
 using Shared.Infrastructure.Persistence;
+using Saga.Orchestrator.Application.Services;
+using Saga.Orchestrator.Application.Interfaces;
+using Saga.Orchestrator.Infrastructure.HttpClients;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -36,6 +39,10 @@ builder.Services.AddAutoMapper(typeof(BookingMappingProfile));
 
 // Add Repositories
 builder.Services.AddScoped<IRepository<Booking.API.Domain.Entities.Booking>, BookingRepository>();
+
+// Add Saga Orchestrator services
+builder.Services.AddHttpClient<IBookingServiceClient, BookingServiceHttpClient>();
+builder.Services.AddScoped<BookingSagaOrchestrator>();
 
 // Add logging
 builder.Services.AddLogging();

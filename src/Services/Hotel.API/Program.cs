@@ -1,8 +1,8 @@
-using Microsoft.EntityFrameworkCore;
 using FluentValidation;
+using Hotel.API.Domain.Entities;
 using Hotel.API.Infrastructure.Persistence;
 using Hotel.API.Infrastructure.Repositories;
-using Hotel.API.Domain.Entities;
+using Microsoft.EntityFrameworkCore;
 using Shared.Domain.Abstractions;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -11,13 +11,14 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
+var connectionString =
+    builder.Configuration.GetConnectionString("DefaultConnection")
     ?? "Host=localhost;Database=HotelDb;Username=postgres;Password=postgres";
 
-builder.Services.AddDbContext<HotelDbContext>(options =>
-    options.UseNpgsql(connectionString));
+builder.Services.AddDbContext<HotelDbContext>(options => options.UseNpgsql(connectionString));
 
 builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(Program).Assembly));
+
 // builder.Services.AddFluentValidationAutoValidation();
 // builder.Services.AddValidatorsFromAssemblyContaining<CreateHotelBookingCommandValidator>();
 builder.Services.AddValidatorsFromAssemblyContaining<Program>(); // Register validators
