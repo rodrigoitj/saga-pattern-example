@@ -1,8 +1,8 @@
 namespace Saga.Orchestrator.Application.Services;
 
-using Saga.Orchestrator.Domain.Models;
-using Saga.Orchestrator.Application.Interfaces;
 using Microsoft.Extensions.Logging;
+using Saga.Orchestrator.Application.Interfaces;
+using Saga.Orchestrator.Domain.Models;
 
 /// <summary>
 /// Saga Orchestrator Service implementing the Saga Pattern for booking orchestration.
@@ -15,7 +15,8 @@ public class BookingSagaOrchestrator
 
     public BookingSagaOrchestrator(
         IBookingServiceClient bookingClient,
-        ILogger<BookingSagaOrchestrator> logger)
+        ILogger<BookingSagaOrchestrator> logger
+    )
     {
         _bookingClient = bookingClient;
         _logger = logger;
@@ -29,14 +30,16 @@ public class BookingSagaOrchestrator
         FlightBookingRequest? flightRequest,
         HotelBookingRequest? hotelRequest,
         CarBookingRequest? carRequest,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         try
         {
             _logger.LogInformation(
                 "Starting booking saga for user {UserId} with booking ID {BookingId}",
                 sagaState.UserId,
-                sagaState.BookingId);
+                sagaState.BookingId
+            );
 
             // Step 1: Book Flight (if requested)
             if (sagaState.IncludeFlights && flightRequest != null)
@@ -74,7 +77,8 @@ public class BookingSagaOrchestrator
 
             _logger.LogInformation(
                 "Booking saga completed successfully for user {UserId}",
-                sagaState.UserId);
+                sagaState.UserId
+            );
 
             return sagaState;
         }
@@ -83,7 +87,8 @@ public class BookingSagaOrchestrator
             _logger.LogError(
                 ex,
                 "Booking saga failed for user {UserId}. Starting compensation.",
-                sagaState.UserId);
+                sagaState.UserId
+            );
 
             sagaState.FailureReason = ex.Message;
             sagaState = await CompensateSagaAsync(sagaState, cancellationToken);
@@ -95,7 +100,8 @@ public class BookingSagaOrchestrator
     private async Task<BookingSagaState> BookFlightAsync(
         BookingSagaState sagaState,
         FlightBookingRequest request,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         try
         {
@@ -112,14 +118,13 @@ public class BookingSagaOrchestrator
 
                 _logger.LogInformation(
                     "Flight booking successful: {ConfirmationCode}",
-                    result.ConfirmationCode);
+                    result.ConfirmationCode
+                );
             }
             else
             {
                 sagaState.FlightBookingStatus = StepStatus.Failed;
-                _logger.LogWarning(
-                    "Flight booking failed: {ErrorMessage}",
-                    result.ErrorMessage);
+                _logger.LogWarning("Flight booking failed: {ErrorMessage}", result.ErrorMessage);
             }
 
             return sagaState;
@@ -135,7 +140,8 @@ public class BookingSagaOrchestrator
     private async Task<BookingSagaState> BookHotelAsync(
         BookingSagaState sagaState,
         HotelBookingRequest request,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         try
         {
@@ -152,14 +158,13 @@ public class BookingSagaOrchestrator
 
                 _logger.LogInformation(
                     "Hotel booking successful: {ConfirmationCode}",
-                    result.ConfirmationCode);
+                    result.ConfirmationCode
+                );
             }
             else
             {
                 sagaState.HotelBookingStatus = StepStatus.Failed;
-                _logger.LogWarning(
-                    "Hotel booking failed: {ErrorMessage}",
-                    result.ErrorMessage);
+                _logger.LogWarning("Hotel booking failed: {ErrorMessage}", result.ErrorMessage);
             }
 
             return sagaState;
@@ -175,7 +180,8 @@ public class BookingSagaOrchestrator
     private async Task<BookingSagaState> BookCarAsync(
         BookingSagaState sagaState,
         CarBookingRequest request,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         try
         {
@@ -192,14 +198,13 @@ public class BookingSagaOrchestrator
 
                 _logger.LogInformation(
                     "Car booking successful: {ReservationCode}",
-                    result.ReservationCode);
+                    result.ReservationCode
+                );
             }
             else
             {
                 sagaState.CarBookingStatus = StepStatus.Failed;
-                _logger.LogWarning(
-                    "Car booking failed: {ErrorMessage}",
-                    result.ErrorMessage);
+                _logger.LogWarning("Car booking failed: {ErrorMessage}", result.ErrorMessage);
             }
 
             return sagaState;
@@ -217,7 +222,8 @@ public class BookingSagaOrchestrator
     /// </summary>
     private async Task<BookingSagaState> CompensateSagaAsync(
         BookingSagaState sagaState,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         sagaState.Status = SagaStatus.Compensating;
 
@@ -226,7 +232,10 @@ public class BookingSagaOrchestrator
         {
             try
             {
-                await _bookingClient.CancelCarAsync(sagaState.CarBookingId.Value, cancellationToken);
+                await _bookingClient.CancelCarAsync(
+                    sagaState.CarBookingId.Value,
+                    cancellationToken
+                );
                 sagaState.CarBookingStatus = StepStatus.Compensated;
                 sagaState.CompensatedSteps.Add("Car");
                 _logger.LogInformation("Car booking compensated");
@@ -237,11 +246,17 @@ public class BookingSagaOrchestrator
             }
         }
 
-        if (sagaState.HotelBookingStatus == StepStatus.Completed && sagaState.HotelBookingId.HasValue)
+        if (
+            sagaState.HotelBookingStatus == StepStatus.Completed
+            && sagaState.HotelBookingId.HasValue
+        )
         {
             try
             {
-                await _bookingClient.CancelHotelAsync(sagaState.HotelBookingId.Value, cancellationToken);
+                await _bookingClient.CancelHotelAsync(
+                    sagaState.HotelBookingId.Value,
+                    cancellationToken
+                );
                 sagaState.HotelBookingStatus = StepStatus.Compensated;
                 sagaState.CompensatedSteps.Add("Hotel");
                 _logger.LogInformation("Hotel booking compensated");
@@ -252,11 +267,17 @@ public class BookingSagaOrchestrator
             }
         }
 
-        if (sagaState.FlightBookingStatus == StepStatus.Completed && sagaState.FlightBookingId.HasValue)
+        if (
+            sagaState.FlightBookingStatus == StepStatus.Completed
+            && sagaState.FlightBookingId.HasValue
+        )
         {
             try
             {
-                await _bookingClient.CancelFlightAsync(sagaState.FlightBookingId.Value, cancellationToken);
+                await _bookingClient.CancelFlightAsync(
+                    sagaState.FlightBookingId.Value,
+                    cancellationToken
+                );
                 sagaState.FlightBookingStatus = StepStatus.Compensated;
                 sagaState.CompensatedSteps.Add("Flight");
                 _logger.LogInformation("Flight booking compensated");

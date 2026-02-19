@@ -9,6 +9,7 @@ using Booking.API.Application.DTOs;
 using Booking.API.Application.Handlers;
 using Booking.API.Domain.Entities;
 using FluentAssertions;
+using MediatR;
 using Moq;
 using Shared.Domain.Abstractions;
 using Xunit;
@@ -18,6 +19,7 @@ public class CreateBookingCommandHandlerTests
     private readonly Mock<IRepository<Booking>> _repositoryMock;
     private readonly Mock<IMapper> _mapperMock;
     private readonly Mock<IUnitOfWork> _unitOfWorkMock;
+    private readonly Mock<IPublisher> _publisherMock;
     private readonly CreateBookingCommandHandler _handler;
 
     public CreateBookingCommandHandlerTests()
@@ -25,7 +27,13 @@ public class CreateBookingCommandHandlerTests
         _repositoryMock = new Mock<IRepository<Booking>>();
         _mapperMock = new Mock<IMapper>();
         _unitOfWorkMock = new Mock<IUnitOfWork>();
-        _handler = new CreateBookingCommandHandler(_repositoryMock.Object, _mapperMock.Object, _unitOfWorkMock.Object);
+        _publisherMock = new Mock<IPublisher>();
+        _handler = new CreateBookingCommandHandler(
+            _repositoryMock.Object,
+            _mapperMock.Object,
+            _unitOfWorkMock.Object,
+            _publisherMock.Object
+        );
     }
 
     [Fact]
@@ -36,15 +44,17 @@ public class CreateBookingCommandHandlerTests
         {
             UserId = Guid.NewGuid(),
             CheckInDate = DateTime.UtcNow.Date.AddDays(1),
-            CheckOutDate = DateTime.UtcNow.Date.AddDays(3)
+            CheckOutDate = DateTime.UtcNow.Date.AddDays(3),
         };
 
         Booking? capturedBooking = null;
-        _repositoryMock.Setup(r => r.AddAsync(It.IsAny<Booking>(), It.IsAny<CancellationToken>()))
+        _repositoryMock
+            .Setup(r => r.AddAsync(It.IsAny<Booking>(), It.IsAny<CancellationToken>()))
             .Callback<Booking, CancellationToken>((b, _) => capturedBooking = b)
             .Returns(Task.CompletedTask);
 
-        _repositoryMock.Setup(r => r.SaveChangesAsync(It.IsAny<CancellationToken>()))
+        _repositoryMock
+            .Setup(r => r.SaveChangesAsync(It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
         var expectedDto = new BookingResponseDto
@@ -55,11 +65,10 @@ public class CreateBookingCommandHandlerTests
             Status = "Pending",
             TotalPrice = 0,
             CheckInDate = command.CheckInDate,
-            CheckOutDate = command.CheckOutDate
+            CheckOutDate = command.CheckOutDate,
         };
 
-        _mapperMock.Setup(m => m.Map<BookingResponseDto>(It.IsAny<Booking>()))
-            .Returns(expectedDto);
+        _mapperMock.Setup(m => m.Map<BookingResponseDto>(It.IsAny<Booking>())).Returns(expectedDto);
 
         // Act
         var result = await _handler.Handle(command, CancellationToken.None);
@@ -73,9 +82,15 @@ public class CreateBookingCommandHandlerTests
         capturedBooking.CheckOutDate.Should().Be(command.CheckOutDate);
         capturedBooking.ReferenceNumber.Should().StartWith("BK");
 
-        _repositoryMock.Verify(r => r.AddAsync(It.IsAny<Booking>(), It.IsAny<CancellationToken>()), Times.Once);
+        _repositoryMock.Verify(
+            r => r.AddAsync(It.IsAny<Booking>(), It.IsAny<CancellationToken>()),
+            Times.Once
+        );
         _repositoryMock.Verify(r => r.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
-        _mapperMock.Verify(m => m.Map<BookingResponseDto>(It.Is<Booking>(b => b == capturedBooking)), Times.Once);
+        _mapperMock.Verify(
+            m => m.Map<BookingResponseDto>(It.Is<Booking>(b => b == capturedBooking)),
+            Times.Once
+        );
     }
 
     [Fact]
@@ -86,18 +101,21 @@ public class CreateBookingCommandHandlerTests
         {
             UserId = Guid.NewGuid(),
             CheckInDate = DateTime.UtcNow.Date.AddDays(1),
-            CheckOutDate = DateTime.UtcNow.Date.AddDays(3)
+            CheckOutDate = DateTime.UtcNow.Date.AddDays(3),
         };
 
         Booking? capturedBooking = null;
-        _repositoryMock.Setup(r => r.AddAsync(It.IsAny<Booking>(), It.IsAny<CancellationToken>()))
+        _repositoryMock
+            .Setup(r => r.AddAsync(It.IsAny<Booking>(), It.IsAny<CancellationToken>()))
             .Callback<Booking, CancellationToken>((b, _) => capturedBooking = b)
             .Returns(Task.CompletedTask);
 
-        _repositoryMock.Setup(r => r.SaveChangesAsync(It.IsAny<CancellationToken>()))
+        _repositoryMock
+            .Setup(r => r.SaveChangesAsync(It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
-        _mapperMock.Setup(m => m.Map<BookingResponseDto>(It.IsAny<Booking>()))
+        _mapperMock
+            .Setup(m => m.Map<BookingResponseDto>(It.IsAny<Booking>()))
             .Returns(new BookingResponseDto());
 
         // Act
@@ -118,26 +136,32 @@ public class CreateBookingCommandHandlerTests
         {
             UserId = Guid.NewGuid(),
             CheckInDate = DateTime.UtcNow.Date.AddDays(1),
-            CheckOutDate = DateTime.UtcNow.Date.AddDays(3)
+            CheckOutDate = DateTime.UtcNow.Date.AddDays(3),
         };
 
         var sequence = new MockSequence();
-        _repositoryMock.InSequence(sequence)
+        _repositoryMock
+            .InSequence(sequence)
             .Setup(r => r.AddAsync(It.IsAny<Booking>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
-        _repositoryMock.InSequence(sequence)
+        _repositoryMock
+            .InSequence(sequence)
             .Setup(r => r.SaveChangesAsync(It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
-        _mapperMock.Setup(m => m.Map<BookingResponseDto>(It.IsAny<Booking>()))
+        _mapperMock
+            .Setup(m => m.Map<BookingResponseDto>(It.IsAny<Booking>()))
             .Returns(new BookingResponseDto());
 
         // Act
         await _handler.Handle(command, CancellationToken.None);
 
         // Assert - Sequence verification is done by MockSequence
-        _repositoryMock.Verify(r => r.AddAsync(It.IsAny<Booking>(), It.IsAny<CancellationToken>()), Times.Once);
+        _repositoryMock.Verify(
+            r => r.AddAsync(It.IsAny<Booking>(), It.IsAny<CancellationToken>()),
+            Times.Once
+        );
         _repositoryMock.Verify(r => r.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 }

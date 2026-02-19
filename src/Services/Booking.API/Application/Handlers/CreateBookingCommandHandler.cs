@@ -2,10 +2,10 @@ namespace Booking.API.Application.Handlers;
 
 using System.Linq;
 using AutoMapper;
-using MediatR;
 using Booking.API.Application.Commands;
 using Booking.API.Application.DTOs;
 using Booking.API.Domain.Entities;
+using MediatR;
 using Shared.Domain.Abstractions;
 
 /// <summary>
@@ -23,7 +23,8 @@ public class CreateBookingCommandHandler : IRequestHandler<CreateBookingCommand,
         IRepository<Booking> bookingRepository,
         IMapper mapper,
         IUnitOfWork unitOfWork,
-        IPublisher publisher)
+        IPublisher publisher
+    )
     {
         _bookingRepository = bookingRepository;
         _mapper = mapper;
@@ -31,17 +32,22 @@ public class CreateBookingCommandHandler : IRequestHandler<CreateBookingCommand,
         _publisher = publisher;
     }
 
-    public async Task<BookingResponseDto> Handle(CreateBookingCommand request, CancellationToken cancellationToken)
+    public async Task<BookingResponseDto> Handle(
+        CreateBookingCommand request,
+        CancellationToken cancellationToken
+    )
     {
         // Generate reference number
-        var referenceNumber = $"BK{DateTime.UtcNow:yyyyMMddHHmmss}{Guid.NewGuid().ToString()[..8].ToUpper()}";
+        var referenceNumber =
+            $"BK{DateTime.UtcNow:yyyyMMddHHmmss}{Guid.NewGuid().ToString()[..8].ToUpper()}";
 
         // Create booking aggregate
         var booking = Booking.Create(
             request.UserId,
             request.CheckInDate,
             request.CheckOutDate,
-            referenceNumber);
+            referenceNumber
+        );
 
         // Add to repository
         await _bookingRepository.AddAsync(booking, cancellationToken);

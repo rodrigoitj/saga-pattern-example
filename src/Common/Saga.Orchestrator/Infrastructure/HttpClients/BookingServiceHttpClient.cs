@@ -11,6 +11,11 @@ using Saga.Orchestrator.Domain.Models;
 /// </summary>
 public class BookingServiceHttpClient : IBookingServiceClient
 {
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        PropertyNameCaseInsensitive = true,
+    };
+
     private readonly HttpClient _httpClient;
     private readonly ILogger<BookingServiceHttpClient> _logger;
     private readonly string _flightServiceUrl;
@@ -20,7 +25,8 @@ public class BookingServiceHttpClient : IBookingServiceClient
     public BookingServiceHttpClient(
         HttpClient httpClient,
         IConfiguration configuration,
-        ILogger<BookingServiceHttpClient> logger)
+        ILogger<BookingServiceHttpClient> logger
+    )
     {
         _httpClient = httpClient;
         _logger = logger;
@@ -31,7 +37,8 @@ public class BookingServiceHttpClient : IBookingServiceClient
 
     public async Task<FlightBookingResult> BookFlightAsync(
         FlightBookingRequest request,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         try
         {
@@ -41,37 +48,53 @@ public class BookingServiceHttpClient : IBookingServiceClient
             var response = await _httpClient.PostAsync(
                 $"{_flightServiceUrl}/api/flights",
                 content,
-                cancellationToken);
+                cancellationToken
+            );
 
             if (response.IsSuccessStatusCode)
             {
                 var responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
-                var result = JsonSerializer.Deserialize<FlightBookingResult>(responseContent);
-                return result ?? new FlightBookingResult { IsSuccess = true };
+                var dto = JsonSerializer.Deserialize<FlightBookingResponseDto>(
+                    responseContent,
+                    JsonOptions
+                );
+
+                if (dto == null || dto.Id == Guid.Empty)
+                {
+                    return new FlightBookingResult
+                    {
+                        IsSuccess = false,
+                        ErrorMessage = "Flight service response invalid",
+                    };
+                }
+
+                return new FlightBookingResult
+                {
+                    IsSuccess = true,
+                    BookingId = dto.Id,
+                    ConfirmationCode = dto.ConfirmationCode,
+                };
             }
             else
             {
                 return new FlightBookingResult
                 {
                     IsSuccess = false,
-                    ErrorMessage = $"Flight service returned {response.StatusCode}"
+                    ErrorMessage = $"Flight service returned {response.StatusCode}",
                 };
             }
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error calling Flight service");
-            return new FlightBookingResult
-            {
-                IsSuccess = false,
-                ErrorMessage = ex.Message
-            };
+            return new FlightBookingResult { IsSuccess = false, ErrorMessage = ex.Message };
         }
     }
 
     public async Task<HotelBookingResult> BookHotelAsync(
         HotelBookingRequest request,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         try
         {
@@ -81,37 +104,53 @@ public class BookingServiceHttpClient : IBookingServiceClient
             var response = await _httpClient.PostAsync(
                 $"{_hotelServiceUrl}/api/hotels",
                 content,
-                cancellationToken);
+                cancellationToken
+            );
 
             if (response.IsSuccessStatusCode)
             {
                 var responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
-                var result = JsonSerializer.Deserialize<HotelBookingResult>(responseContent);
-                return result ?? new HotelBookingResult { IsSuccess = true };
+                var dto = JsonSerializer.Deserialize<HotelBookingResponseDto>(
+                    responseContent,
+                    JsonOptions
+                );
+
+                if (dto == null || dto.Id == Guid.Empty)
+                {
+                    return new HotelBookingResult
+                    {
+                        IsSuccess = false,
+                        ErrorMessage = "Hotel service response invalid",
+                    };
+                }
+
+                return new HotelBookingResult
+                {
+                    IsSuccess = true,
+                    BookingId = dto.Id,
+                    ConfirmationCode = dto.ConfirmationCode,
+                };
             }
             else
             {
                 return new HotelBookingResult
                 {
                     IsSuccess = false,
-                    ErrorMessage = $"Hotel service returned {response.StatusCode}"
+                    ErrorMessage = $"Hotel service returned {response.StatusCode}",
                 };
             }
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error calling Hotel service");
-            return new HotelBookingResult
-            {
-                IsSuccess = false,
-                ErrorMessage = ex.Message
-            };
+            return new HotelBookingResult { IsSuccess = false, ErrorMessage = ex.Message };
         }
     }
 
     public async Task<CarBookingResult> BookCarAsync(
         CarBookingRequest request,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         try
         {
@@ -121,42 +160,61 @@ public class BookingServiceHttpClient : IBookingServiceClient
             var response = await _httpClient.PostAsync(
                 $"{_carServiceUrl}/api/cars",
                 content,
-                cancellationToken);
+                cancellationToken
+            );
 
             if (response.IsSuccessStatusCode)
             {
                 var responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
-                var result = JsonSerializer.Deserialize<CarBookingResult>(responseContent);
-                return result ?? new CarBookingResult { IsSuccess = true };
+                var dto = JsonSerializer.Deserialize<CarBookingResponseDto>(
+                    responseContent,
+                    JsonOptions
+                );
+
+                if (dto == null || dto.Id == Guid.Empty)
+                {
+                    return new CarBookingResult
+                    {
+                        IsSuccess = false,
+                        ErrorMessage = "Car service response invalid",
+                    };
+                }
+
+                return new CarBookingResult
+                {
+                    IsSuccess = true,
+                    BookingId = dto.Id,
+                    ReservationCode = dto.ReservationCode,
+                };
             }
             else
             {
                 return new CarBookingResult
                 {
                     IsSuccess = false,
-                    ErrorMessage = $"Car service returned {response.StatusCode}"
+                    ErrorMessage = $"Car service returned {response.StatusCode}",
                 };
             }
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error calling Car service");
-            return new CarBookingResult
-            {
-                IsSuccess = false,
-                ErrorMessage = ex.Message
-            };
+            return new CarBookingResult { IsSuccess = false, ErrorMessage = ex.Message };
         }
     }
 
-    public async Task<bool> CancelFlightAsync(Guid flightBookingId, CancellationToken cancellationToken)
+    public async Task<bool> CancelFlightAsync(
+        Guid flightBookingId,
+        CancellationToken cancellationToken
+    )
     {
         try
         {
             var response = await _httpClient.PutAsync(
                 $"{_flightServiceUrl}/api/flights/{flightBookingId}/cancel",
                 null,
-                cancellationToken);
+                cancellationToken
+            );
 
             return response.IsSuccessStatusCode;
         }
@@ -167,14 +225,18 @@ public class BookingServiceHttpClient : IBookingServiceClient
         }
     }
 
-    public async Task<bool> CancelHotelAsync(Guid hotelBookingId, CancellationToken cancellationToken)
+    public async Task<bool> CancelHotelAsync(
+        Guid hotelBookingId,
+        CancellationToken cancellationToken
+    )
     {
         try
         {
             var response = await _httpClient.PutAsync(
                 $"{_hotelServiceUrl}/api/hotels/{hotelBookingId}/cancel",
                 null,
-                cancellationToken);
+                cancellationToken
+            );
 
             return response.IsSuccessStatusCode;
         }
@@ -192,7 +254,8 @@ public class BookingServiceHttpClient : IBookingServiceClient
             var response = await _httpClient.PutAsync(
                 $"{_carServiceUrl}/api/cars/{carBookingId}/cancel",
                 null,
-                cancellationToken);
+                cancellationToken
+            );
 
             return response.IsSuccessStatusCode;
         }
@@ -201,5 +264,23 @@ public class BookingServiceHttpClient : IBookingServiceClient
             _logger.LogError(ex, "Error canceling car booking");
             return false;
         }
+    }
+
+    private sealed class FlightBookingResponseDto
+    {
+        public Guid Id { get; init; }
+        public string ConfirmationCode { get; init; } = string.Empty;
+    }
+
+    private sealed class HotelBookingResponseDto
+    {
+        public Guid Id { get; init; }
+        public string ConfirmationCode { get; init; } = string.Empty;
+    }
+
+    private sealed class CarBookingResponseDto
+    {
+        public Guid Id { get; init; }
+        public string ReservationCode { get; init; } = string.Empty;
     }
 }

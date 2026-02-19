@@ -1,12 +1,12 @@
 namespace Booking.API.Application.EventHandlers;
 
-using MediatR;
-using Microsoft.Extensions.Logging;
 using Booking.API.Domain.Entities;
 using Booking.API.Domain.Events;
-using Shared.Domain.Abstractions;
+using MediatR;
+using Microsoft.Extensions.Logging;
 using Saga.Orchestrator.Application.Services;
 using Saga.Orchestrator.Domain.Models;
+using Shared.Domain.Abstractions;
 
 /// <summary>
 /// Event handler for BookingCreatedEvent.
@@ -21,7 +21,8 @@ public class BookingCreatedEventHandler : INotificationHandler<BookingCreatedEve
     public BookingCreatedEventHandler(
         IRepository<Booking> bookingRepository,
         BookingSagaOrchestrator sagaOrchestrator,
-        ILogger<BookingCreatedEventHandler> logger)
+        ILogger<BookingCreatedEventHandler> logger
+    )
     {
         _bookingRepository = bookingRepository;
         _sagaOrchestrator = sagaOrchestrator;
@@ -34,18 +35,18 @@ public class BookingCreatedEventHandler : INotificationHandler<BookingCreatedEve
         {
             _logger.LogInformation(
                 "Handling BookingCreatedEvent for booking {BookingId}",
-                notification.BookingId);
+                notification.BookingId
+            );
 
             // Retrieve the booking
             var booking = await _bookingRepository.GetByIdAsync(
                 notification.BookingId,
-                cancellationToken);
+                cancellationToken
+            );
 
             if (booking is null)
             {
-                _logger.LogError(
-                    "Booking {BookingId} not found",
-                    notification.BookingId);
+                _logger.LogError("Booking {BookingId} not found", notification.BookingId);
                 return;
             }
 
@@ -57,8 +58,8 @@ public class BookingCreatedEventHandler : INotificationHandler<BookingCreatedEve
                 CheckInDate = booking.CheckInDate,
                 CheckOutDate = booking.CheckOutDate,
                 IncludeFlights = true, // TODO: Get from request/command
-                IncludeHotel = true,   // TODO: Get from request/command
-                IncludeCar = true      // TODO: Get from request/command
+                IncludeHotel = true, // TODO: Get from request/command
+                IncludeCar = true, // TODO: Get from request/command
             };
 
             // Create booking requests with demo data
@@ -73,21 +74,24 @@ public class BookingCreatedEventHandler : INotificationHandler<BookingCreatedEve
                 flightRequest,
                 hotelRequest,
                 carRequest,
-                cancellationToken);
+                cancellationToken
+            );
 
             // Update booking with saga results
             await UpdateBookingWithSagaResults(booking, completedSagaState, cancellationToken);
 
             _logger.LogInformation(
                 "Booking saga completed with status {Status}",
-                completedSagaState.Status);
+                completedSagaState.Status
+            );
         }
         catch (Exception ex)
         {
             _logger.LogError(
                 ex,
                 "Error handling BookingCreatedEvent for booking {BookingId}",
-                notification.BookingId);
+                notification.BookingId
+            );
             throw;
         }
     }
@@ -102,7 +106,7 @@ public class BookingCreatedEventHandler : INotificationHandler<BookingCreatedEve
             DepartureDateUtc = booking.CheckInDate,
             ArrivalDateUtc = booking.CheckOutDate,
             Price = 500m, // Demo price
-            PassengerCount = 1 // Demo value
+            PassengerCount = 1, // Demo value
         };
     }
 
@@ -116,7 +120,7 @@ public class BookingCreatedEventHandler : INotificationHandler<BookingCreatedEve
             CheckInDate = booking.CheckInDate,
             CheckOutDate = booking.CheckOutDate,
             RoomCount = 1, // Demo value
-            PricePerNight = 150m // Demo price
+            PricePerNight = 150m, // Demo price
         };
     }
 
@@ -130,22 +134,29 @@ public class BookingCreatedEventHandler : INotificationHandler<BookingCreatedEve
             PickUpDate = booking.CheckInDate,
             ReturnDate = booking.CheckOutDate,
             PickUpLocation = "Los Angeles Airport", // Demo data
-            PricePerDay = 50m // Demo price
+            PricePerDay = 50m, // Demo price
         };
     }
 
     private async Task UpdateBookingWithSagaResults(
         Booking booking,
         BookingSagaState sagaState,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         // Update booking with saga results
-        if (sagaState.FlightBookingStatus == StepStatus.Completed && sagaState.FlightBookingId.HasValue)
+        if (
+            sagaState.FlightBookingStatus == StepStatus.Completed
+            && sagaState.FlightBookingId.HasValue
+        )
         {
             booking.AddFlightBooking(sagaState.FlightBookingId.Value, 500m); // Use actual price from request
         }
 
-        if (sagaState.HotelBookingStatus == StepStatus.Completed && sagaState.HotelBookingId.HasValue)
+        if (
+            sagaState.HotelBookingStatus == StepStatus.Completed
+            && sagaState.HotelBookingId.HasValue
+        )
         {
             booking.AddHotelBooking(sagaState.HotelBookingId.Value, 750m); // Use actual price from request
         }

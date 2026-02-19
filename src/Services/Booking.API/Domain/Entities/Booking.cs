@@ -15,19 +15,23 @@ public class Booking : AggregateRoot
     public decimal TotalPrice { get; private set; }
     public DateTime CheckInDate { get; private set; }
     public DateTime CheckOutDate { get; private set; }
-    
+
     public Guid? FlightBookingId { get; private set; }
     public Guid? HotelBookingId { get; private set; }
     public Guid? CarBookingId { get; private set; }
 
     private readonly List<BookingStep> _steps = [];
-    public IReadOnlyList<BookingStep> Steps => _steps.AsReadOnly();
+    public IReadOnlyList<BookingStep> Steps
+    {
+        get { return _steps.AsReadOnly(); }
+    }
 
     public static Booking Create(
         Guid userId,
         DateTime checkInDate,
         DateTime checkOutDate,
-        string referenceNumber)
+        string referenceNumber
+    )
     {
         var booking = new Booking
         {
@@ -37,16 +41,18 @@ public class Booking : AggregateRoot
             CheckOutDate = checkOutDate,
             ReferenceNumber = referenceNumber,
             Status = BookingStatus.Pending,
-            TotalPrice = 0
+            TotalPrice = 0,
         };
 
-        booking.RaiseDomainEvent(new BookingCreatedEvent 
-        { 
-            AggregateId = booking.Id,
-            BookingId = booking.Id,
-            UserId = userId,
-            ReferenceNumber = referenceNumber
-        });
+        booking.RaiseDomainEvent(
+            new BookingCreatedEvent
+            {
+                AggregateId = booking.Id,
+                BookingId = booking.Id,
+                UserId = userId,
+                ReferenceNumber = referenceNumber,
+            }
+        );
 
         return booking;
     }
@@ -55,57 +61,61 @@ public class Booking : AggregateRoot
     {
         FlightBookingId = flightBookingId;
         TotalPrice += price;
-        _steps.Add(new BookingStep 
-        { 
-            StepType = SagaStepType.FlightBooking, 
-            Status = SagaStepStatus.Pending,
-            ExternalId = flightBookingId
-        });
+        _steps.Add(
+            new BookingStep
+            {
+                StepType = SagaStepType.FlightBooking,
+                Status = SagaStepStatus.Pending,
+                ExternalId = flightBookingId,
+            }
+        );
     }
 
     public void AddHotelBooking(Guid hotelBookingId, decimal price)
     {
         HotelBookingId = hotelBookingId;
         TotalPrice += price;
-        _steps.Add(new BookingStep 
-        { 
-            StepType = SagaStepType.HotelBooking, 
-            Status = SagaStepStatus.Pending,
-            ExternalId = hotelBookingId
-        });
+        _steps.Add(
+            new BookingStep
+            {
+                StepType = SagaStepType.HotelBooking,
+                Status = SagaStepStatus.Pending,
+                ExternalId = hotelBookingId,
+            }
+        );
     }
 
     public void AddCarBooking(Guid carBookingId, decimal price)
     {
         CarBookingId = carBookingId;
         TotalPrice += price;
-        _steps.Add(new BookingStep 
-        { 
-            StepType = SagaStepType.CarBooking, 
-            Status = SagaStepStatus.Pending,
-            ExternalId = carBookingId
-        });
+        _steps.Add(
+            new BookingStep
+            {
+                StepType = SagaStepType.CarBooking,
+                Status = SagaStepStatus.Pending,
+                ExternalId = carBookingId,
+            }
+        );
     }
 
     public void MarkAsConfirmed()
     {
         Status = BookingStatus.Confirmed;
-        RaiseDomainEvent(new BookingConfirmedEvent 
-        { 
-            AggregateId = Id,
-            BookingId = Id
-        });
+        RaiseDomainEvent(new BookingConfirmedEvent { AggregateId = Id, BookingId = Id });
     }
 
     public void MarkAsFailed(string reason)
     {
         Status = BookingStatus.Failed;
-        RaiseDomainEvent(new BookingFailedEvent 
-        { 
-            AggregateId = Id,
-            BookingId = Id,
-            Reason = reason
-        });
+        RaiseDomainEvent(
+            new BookingFailedEvent
+            {
+                AggregateId = Id,
+                BookingId = Id,
+                Reason = reason,
+            }
+        );
     }
 
     public void UpdateStepStatus(SagaStepType stepType, SagaStepStatus stepStatus)
@@ -124,7 +134,7 @@ public enum BookingStatus
     Processing,
     Confirmed,
     Failed,
-    Cancelled
+    Cancelled,
 }
 
 public class BookingStep
@@ -135,7 +145,7 @@ public class BookingStep
     public SagaStepStatus Status { get; set; }
     public Guid ExternalId { get; set; }
     public string? ErrorMessage { get; set; }
-    
+
     public Booking? Booking { get; set; }
 }
 
@@ -143,7 +153,7 @@ public enum SagaStepType
 {
     FlightBooking,
     HotelBooking,
-    CarBooking
+    CarBooking,
 }
 
 public enum SagaStepStatus
@@ -152,5 +162,5 @@ public enum SagaStepStatus
     InProgress,
     Completed,
     Failed,
-    Compensated
+    Compensated,
 }
