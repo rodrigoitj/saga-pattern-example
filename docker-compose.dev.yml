@@ -17,6 +17,11 @@ services:
       - ENABLE_WATCH=false
     ports:
       - "5011:5011" # Debug port
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
     volumes:
       - ./src/Services/Booking.API:/src/Services/Booking.API
       - ./src/Common:/src/Common
@@ -31,6 +36,13 @@ services:
       - ENABLE_WATCH=false
     ports:
       - "5012:5012" # Debug port
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      booking-api:
+        condition: service_started
     volumes:
       - ./src/Services/Flight.API:/src/Services/Flight.API
       - ./src/Common:/src/Common
@@ -45,6 +57,13 @@ services:
       - ENABLE_WATCH=false
     ports:
       - "5013:5013" # Debug port
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      flight-api:
+        condition: service_started
     volumes:
       - ./src/Services/Hotel.API:/src/Services/Hotel.API
       - ./src/Common:/src/Common
@@ -59,6 +78,13 @@ services:
       - ENABLE_WATCH=false
     ports:
       - "5014:5014" # Debug port
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      hotel-api:
+        condition: service_started
     volumes:
       - ./src/Services/Car.API:/src/Services/Car.API
       - ./src/Common:/src/Common
