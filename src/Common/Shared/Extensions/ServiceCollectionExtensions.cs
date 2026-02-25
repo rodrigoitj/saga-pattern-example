@@ -8,7 +8,8 @@ public static class ServiceCollectionExtensions
 {
     public static IServiceCollection AddRabbitMqMessaging(
         this IServiceCollection services,
-        IConfiguration configuration
+        IConfiguration configuration,
+        Action<IBusRegistrationConfigurator>? configure = null
     )
     {
         var rabbitMqSection = configuration.GetSection("RabbitMQ");
@@ -19,6 +20,7 @@ public static class ServiceCollectionExtensions
 
         services.AddMassTransit(x =>
         {
+            configure?.Invoke(x);
             x.UsingRabbitMq(
                 (context, cfg) =>
                 {
@@ -31,6 +33,8 @@ public static class ServiceCollectionExtensions
                             h.Password(rabbitMqPassword);
                         }
                     );
+
+                    cfg.ConfigureEndpoints(context);
                 }
             );
         });

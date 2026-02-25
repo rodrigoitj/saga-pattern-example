@@ -1,12 +1,13 @@
 namespace Booking.API.Application.Handlers;
 
-using System.Linq;
 using AutoMapper;
 using Booking.API.Application.Commands;
 using Booking.API.Application.DTOs;
 using Booking.API.Domain.Entities;
+using MassTransit;
 using MediatR;
 using Shared.Domain.Abstractions;
+using Shared.Domain.IntegrationEvents;
 
 /// <summary>
 /// Handler for CreateBookingCommand.
@@ -16,20 +17,17 @@ public class CreateBookingCommandHandler : IRequestHandler<CreateBookingCommand,
 {
     private readonly IRepository<Booking> _bookingRepository;
     private readonly IMapper _mapper;
-    private readonly IUnitOfWork _unitOfWork;
-    private readonly IPublisher _publisher;
+    private readonly IPublishEndpoint _publishEndpoint;
 
     public CreateBookingCommandHandler(
         IRepository<Booking> bookingRepository,
         IMapper mapper,
-        IUnitOfWork unitOfWork,
-        IPublisher publisher
+        IPublishEndpoint publishEndpoint
     )
     {
         _bookingRepository = bookingRepository;
         _mapper = mapper;
-        _unitOfWork = unitOfWork;
-        _publisher = publisher;
+        _publishEndpoint = publishEndpoint;
     }
 
     public async Task<BookingResponseDto> Handle(
@@ -46,21 +44,30 @@ public class CreateBookingCommandHandler : IRequestHandler<CreateBookingCommand,
             request.UserId,
             request.CheckInDate,
             request.CheckOutDate,
-            referenceNumber
+            referenceNumber,
+            request.IncludeFlights,
+            request.IncludeHotel,
+            request.IncludeCar
         );
+        booking.MarkAsProcessing();
 
         // Add to repository
         await _bookingRepository.AddAsync(booking, cancellationToken);
         await _bookingRepository.SaveChangesAsync(cancellationToken);
 
-        // Publish domain events to trigger saga orchestration
-        foreach (var domainEvent in booking.DomainEvents.ToList())
+        var integrationEvent = new BookingCreatedIntegrationEvent
         {
-            await _publisher.Publish(domainEvent, cancellationToken);
-        }
+            BookingId = booking.Id,
+            UserId = booking.UserId,
+            CheckInDate = booking.CheckInDate,
+            CheckOutDate = booking.CheckOutDate,
+            IncludeFlights = booking.IncludeFlights,
+            IncludeHotel = booking.IncludeHotel,
+            IncludeCar = booking.IncludeCar,
+            ReferenceNumber = booking.ReferenceNumber,
+        };
 
-        // Clear domain events after publishing
-        booking.ClearDomainEvents();
+        await _publishEndpoint.Publish(integrationEvent, cancellationToken);
 
         return _mapper.Map<BookingResponseDto>(booking);
     }

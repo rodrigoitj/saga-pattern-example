@@ -1,11 +1,11 @@
 namespace Car.API.Domain.Entities;
 
-using Car.API.Domain.Events;
 using Shared.Domain.Abstractions;
 
 public class CarRental : AggregateRoot
 {
     public string ReservationCode { get; private set; } = string.Empty;
+    public Guid BookingId { get; private set; }
     public Guid UserId { get; private set; }
     public string CarModel { get; private set; } = string.Empty;
     public string Company { get; private set; } = string.Empty;
@@ -17,13 +17,15 @@ public class CarRental : AggregateRoot
     public CarRentalStatus Status { get; private set; } = CarRentalStatus.Pending;
 
     public static CarRental Create(
+        Guid bookingId,
         Guid userId,
         string carModel,
         string company,
         DateTime pickUpDate,
         DateTime returnDate,
         string pickUpLocation,
-        decimal pricePerDay)
+        decimal pricePerDay
+    )
     {
         var days = (returnDate - pickUpDate).Days;
         var totalPrice = pricePerDay * days;
@@ -31,6 +33,7 @@ public class CarRental : AggregateRoot
         var carRental = new CarRental
         {
             Id = Guid.NewGuid(),
+            BookingId = bookingId,
             UserId = userId,
             CarModel = carModel,
             Company = company,
@@ -39,25 +42,19 @@ public class CarRental : AggregateRoot
             PickUpLocation = pickUpLocation,
             PricePerDay = pricePerDay,
             TotalPrice = totalPrice,
-            ReservationCode = $"CR{DateTime.UtcNow:yyyyMMddHHmmss}{Guid.NewGuid().ToString()[..6].ToUpper()}",
-            Status = CarRentalStatus.Pending
+            ReservationCode =
+                $"CR{DateTime.UtcNow:yyyyMMddHHmmss}{Guid.NewGuid().ToString()[..6].ToUpper()}",
+            Status = CarRentalStatus.Pending,
         };
-
-        carRental.RaiseDomainEvent(new CarRentalBookedEvent 
-        { 
-            AggregateId = carRental.Id,
-            CarRentalId = carRental.Id,
-            UserId = userId,
-            ReservationCode = carRental.ReservationCode
-        });
-
         return carRental;
     }
 
     public void Confirm()
     {
         if (Status != CarRentalStatus.Pending)
-            throw new InvalidOperationException("Car rental can only be confirmed from pending state");
+            throw new InvalidOperationException(
+                "Car rental can only be confirmed from pending state"
+            );
 
         Status = CarRentalStatus.Confirmed;
     }
@@ -73,5 +70,5 @@ public enum CarRentalStatus
     Pending,
     Confirmed,
     Cancelled,
-    Failed
+    Failed,
 }

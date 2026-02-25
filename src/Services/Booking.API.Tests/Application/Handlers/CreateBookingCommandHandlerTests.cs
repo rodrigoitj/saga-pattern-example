@@ -9,30 +9,28 @@ using Booking.API.Application.DTOs;
 using Booking.API.Application.Handlers;
 using Booking.API.Domain.Entities;
 using FluentAssertions;
-using MediatR;
+using MassTransit;
 using Moq;
 using Shared.Domain.Abstractions;
+using Shared.Domain.IntegrationEvents;
 using Xunit;
 
 public class CreateBookingCommandHandlerTests
 {
     private readonly Mock<IRepository<Booking>> _repositoryMock;
     private readonly Mock<IMapper> _mapperMock;
-    private readonly Mock<IUnitOfWork> _unitOfWorkMock;
-    private readonly Mock<IPublisher> _publisherMock;
+    private readonly Mock<IPublishEndpoint> _publishEndpointMock;
     private readonly CreateBookingCommandHandler _handler;
 
     public CreateBookingCommandHandlerTests()
     {
         _repositoryMock = new Mock<IRepository<Booking>>();
         _mapperMock = new Mock<IMapper>();
-        _unitOfWorkMock = new Mock<IUnitOfWork>();
-        _publisherMock = new Mock<IPublisher>();
+        _publishEndpointMock = new Mock<IPublishEndpoint>();
         _handler = new CreateBookingCommandHandler(
             _repositoryMock.Object,
             _mapperMock.Object,
-            _unitOfWorkMock.Object,
-            _publisherMock.Object
+            _publishEndpointMock.Object
         );
     }
 
@@ -62,13 +60,18 @@ public class CreateBookingCommandHandlerTests
             Id = Guid.NewGuid(),
             ReferenceNumber = "BK20260213120000ABCD1234",
             UserId = command.UserId,
-            Status = "Pending",
+            Status = "Processing",
             TotalPrice = 0,
             CheckInDate = command.CheckInDate,
             CheckOutDate = command.CheckOutDate,
         };
 
         _mapperMock.Setup(m => m.Map<BookingResponseDto>(It.IsAny<Booking>())).Returns(expectedDto);
+        _publishEndpointMock
+            .Setup(p =>
+                p.Publish(It.IsAny<BookingCreatedIntegrationEvent>(), It.IsAny<CancellationToken>())
+            )
+            .Returns(Task.CompletedTask);
 
         // Act
         var result = await _handler.Handle(command, CancellationToken.None);
@@ -89,6 +92,14 @@ public class CreateBookingCommandHandlerTests
         _repositoryMock.Verify(r => r.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
         _mapperMock.Verify(
             m => m.Map<BookingResponseDto>(It.Is<Booking>(b => b == capturedBooking)),
+            Times.Once
+        );
+        _publishEndpointMock.Verify(
+            p =>
+                p.Publish(
+                    It.IsAny<BookingCreatedIntegrationEvent>(),
+                    It.IsAny<CancellationToken>()
+                ),
             Times.Once
         );
     }
@@ -117,6 +128,11 @@ public class CreateBookingCommandHandlerTests
         _mapperMock
             .Setup(m => m.Map<BookingResponseDto>(It.IsAny<Booking>()))
             .Returns(new BookingResponseDto());
+        _publishEndpointMock
+            .Setup(p =>
+                p.Publish(It.IsAny<BookingCreatedIntegrationEvent>(), It.IsAny<CancellationToken>())
+            )
+            .Returns(Task.CompletedTask);
 
         // Act
         await _handler.Handle(command, CancellationToken.None);
@@ -153,6 +169,11 @@ public class CreateBookingCommandHandlerTests
         _mapperMock
             .Setup(m => m.Map<BookingResponseDto>(It.IsAny<Booking>()))
             .Returns(new BookingResponseDto());
+        _publishEndpointMock
+            .Setup(p =>
+                p.Publish(It.IsAny<BookingCreatedIntegrationEvent>(), It.IsAny<CancellationToken>())
+            )
+            .Returns(Task.CompletedTask);
 
         // Act
         await _handler.Handle(command, CancellationToken.None);

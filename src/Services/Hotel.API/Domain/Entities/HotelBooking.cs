@@ -1,11 +1,11 @@
 namespace Hotel.API.Domain.Entities;
 
-using Hotel.API.Domain.Events;
 using Shared.Domain.Abstractions;
 
 public class HotelBooking : AggregateRoot
 {
     public string ConfirmationCode { get; private set; } = string.Empty;
+    public Guid BookingId { get; private set; }
     public Guid UserId { get; private set; }
     public string HotelName { get; private set; } = string.Empty;
     public string City { get; private set; } = string.Empty;
@@ -17,13 +17,15 @@ public class HotelBooking : AggregateRoot
     public HotelBookingStatus Status { get; private set; } = HotelBookingStatus.Pending;
 
     public static HotelBooking Create(
+        Guid bookingId,
         Guid userId,
         string hotelName,
         string city,
         DateTime checkInDate,
         DateTime checkOutDate,
         int roomCount,
-        decimal pricePerNight)
+        decimal pricePerNight
+    )
     {
         var nights = (checkOutDate - checkInDate).Days;
         var totalPrice = pricePerNight * nights * roomCount;
@@ -31,6 +33,7 @@ public class HotelBooking : AggregateRoot
         var hotelBooking = new HotelBooking
         {
             Id = Guid.NewGuid(),
+            BookingId = bookingId,
             UserId = userId,
             HotelName = hotelName,
             City = city,
@@ -39,25 +42,19 @@ public class HotelBooking : AggregateRoot
             RoomCount = roomCount,
             PricePerNight = pricePerNight,
             TotalPrice = totalPrice,
-            ConfirmationCode = $"HT{DateTime.UtcNow:yyyyMMddHHmmss}{Guid.NewGuid().ToString()[..6].ToUpper()}",
-            Status = HotelBookingStatus.Pending
+            ConfirmationCode =
+                $"HT{DateTime.UtcNow:yyyyMMddHHmmss}{Guid.NewGuid().ToString()[..6].ToUpper()}",
+            Status = HotelBookingStatus.Pending,
         };
-
-        hotelBooking.RaiseDomainEvent(new HotelBookedEvent 
-        { 
-            // AggregateId = hotelBooking.Id,
-            HotelBookingId = hotelBooking.Id,
-            UserId = userId,
-            ConfirmationCode = hotelBooking.ConfirmationCode
-        });
-
         return hotelBooking;
     }
 
     public void Confirm()
     {
         if (Status != HotelBookingStatus.Pending)
-            throw new InvalidOperationException("Hotel booking can only be confirmed from pending state");
+            throw new InvalidOperationException(
+                "Hotel booking can only be confirmed from pending state"
+            );
 
         Status = HotelBookingStatus.Confirmed;
     }
@@ -73,5 +70,5 @@ public enum HotelBookingStatus
     Pending,
     Confirmed,
     Cancelled,
-    Failed
+    Failed,
 }

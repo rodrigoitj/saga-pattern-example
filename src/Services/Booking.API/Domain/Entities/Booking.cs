@@ -1,6 +1,5 @@
 namespace Booking.API.Domain.Entities;
 
-using global::Booking.API.Domain.Events;
 using Shared.Domain.Abstractions;
 
 /// <summary>
@@ -15,6 +14,9 @@ public class Booking : AggregateRoot
     public decimal TotalPrice { get; private set; }
     public DateTime CheckInDate { get; private set; }
     public DateTime CheckOutDate { get; private set; }
+    public bool IncludeFlights { get; private set; }
+    public bool IncludeHotel { get; private set; }
+    public bool IncludeCar { get; private set; }
 
     public Guid? FlightBookingId { get; private set; }
     public Guid? HotelBookingId { get; private set; }
@@ -30,7 +32,10 @@ public class Booking : AggregateRoot
         Guid userId,
         DateTime checkInDate,
         DateTime checkOutDate,
-        string referenceNumber
+        string referenceNumber,
+        bool includeFlights,
+        bool includeHotel,
+        bool includeCar
     )
     {
         var booking = new Booking
@@ -42,18 +47,10 @@ public class Booking : AggregateRoot
             ReferenceNumber = referenceNumber,
             Status = BookingStatus.Pending,
             TotalPrice = 0,
+            IncludeFlights = includeFlights,
+            IncludeHotel = includeHotel,
+            IncludeCar = includeCar,
         };
-
-        booking.RaiseDomainEvent(
-            new BookingCreatedEvent
-            {
-                AggregateId = booking.Id,
-                BookingId = booking.Id,
-                UserId = userId,
-                ReferenceNumber = referenceNumber,
-            }
-        );
-
         return booking;
     }
 
@@ -65,7 +62,7 @@ public class Booking : AggregateRoot
             new BookingStep
             {
                 StepType = SagaStepType.FlightBooking,
-                Status = SagaStepStatus.Pending,
+                Status = SagaStepStatus.Completed,
                 ExternalId = flightBookingId,
             }
         );
@@ -79,7 +76,7 @@ public class Booking : AggregateRoot
             new BookingStep
             {
                 StepType = SagaStepType.HotelBooking,
-                Status = SagaStepStatus.Pending,
+                Status = SagaStepStatus.Completed,
                 ExternalId = hotelBookingId,
             }
         );
@@ -93,29 +90,28 @@ public class Booking : AggregateRoot
             new BookingStep
             {
                 StepType = SagaStepType.CarBooking,
-                Status = SagaStepStatus.Pending,
+                Status = SagaStepStatus.Completed,
                 ExternalId = carBookingId,
             }
         );
     }
 
+    public void MarkAsProcessing()
+    {
+        if (Status == BookingStatus.Pending)
+        {
+            Status = BookingStatus.Processing;
+        }
+    }
+
     public void MarkAsConfirmed()
     {
         Status = BookingStatus.Confirmed;
-        RaiseDomainEvent(new BookingConfirmedEvent { AggregateId = Id, BookingId = Id });
     }
 
     public void MarkAsFailed(string reason)
     {
         Status = BookingStatus.Failed;
-        RaiseDomainEvent(
-            new BookingFailedEvent
-            {
-                AggregateId = Id,
-                BookingId = Id,
-                Reason = reason,
-            }
-        );
     }
 
     public void UpdateStepStatus(SagaStepType stepType, SagaStepStatus stepStatus)
@@ -125,6 +121,34 @@ public class Booking : AggregateRoot
         {
             step.Status = stepStatus;
         }
+    }
+
+    public void MarkStepFailed(SagaStepType stepType, string reason)
+    {
+        var step = _steps.FirstOrDefault(s => s.StepType == stepType);
+        if (step is null)
+        {
+            _steps.Add(
+                new BookingStep
+                {
+                    StepType = stepType,
+                    Status = SagaStepStatus.Failed,
+                    ExternalId = Guid.Empty,
+                    ErrorMessage = reason,
+                }
+            );
+            return;
+        }
+
+        step.Status = SagaStepStatus.Failed;
+        step.ErrorMessage = reason;
+    }
+
+    public bool IsReadyToConfirm()
+    {
+        return (!IncludeFlights || FlightBookingId.HasValue)
+            && (!IncludeHotel || HotelBookingId.HasValue)
+            && (!IncludeCar || CarBookingId.HasValue);
     }
 }
 

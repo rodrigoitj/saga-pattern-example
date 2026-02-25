@@ -18,6 +18,7 @@ public class FlightDbContext : DbContext
         {
             builder.HasKey(f => f.Id);
             builder.Property(f => f.Id).ValueGeneratedNever();
+            builder.Property(f => f.BookingId).IsRequired();
             builder.Property(f => f.ConfirmationCode).IsRequired();
             builder.Property(f => f.Status).HasConversion<string>();
             builder.ToTable("FlightBookings");

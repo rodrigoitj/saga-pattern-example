@@ -23,6 +23,5 @@
   <ItemGroup>
     <ProjectReference Include="..\..\Common\Domain\Shared.Domain.csproj" />
     <ProjectReference Include="..\..\Common\Shared\Shared.Infrastructure.csproj" />
-    <ProjectReference Include="..\..\Common\Saga.Orchestrator\Saga.Orchestrator.csproj" />
   </ItemGroup>
 </Project>

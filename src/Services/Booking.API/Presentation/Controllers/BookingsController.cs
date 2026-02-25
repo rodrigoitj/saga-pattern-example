@@ -1,11 +1,11 @@
 namespace Booking.API.Presentation.Controllers;
 
-using MediatR;
-using Microsoft.AspNetCore.Mvc;
 using Booking.API.Application.Commands;
 using Booking.API.Application.DTOs;
 using Booking.API.Application.Queries;
 using FluentValidation;
+using MediatR;
+using Microsoft.AspNetCore.Mvc;
 
 /// <summary>
 /// Booking API Controller.
@@ -36,7 +36,8 @@ public class BookingsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> CreateBooking(
         [FromBody] CreateBookingRequestDto request,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         try
         {
@@ -47,7 +48,7 @@ public class BookingsController : ControllerBase
                 CheckOutDate = request.CheckOutDate,
                 IncludeFlights = request.IncludeFlights,
                 IncludeHotel = request.IncludeHotel,
-                IncludeCar = request.IncludeCar
+                IncludeCar = request.IncludeCar,
             };
 
             var result = await _mediator.Send(command, cancellationToken);
@@ -91,7 +92,10 @@ public class BookingsController : ControllerBase
     /// <returns>List of bookings</returns>
     [HttpGet("user/{userId}")]
     [ProducesResponseType(typeof(List<BookingResponseDto>), StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetUserBookings(Guid userId, CancellationToken cancellationToken)
+    public async Task<IActionResult> GetUserBookings(
+        Guid userId,
+        CancellationToken cancellationToken
+    )
     {
         var query = new GetUserBookingsQuery { UserId = userId };
         var result = await _mediator.Send(query, cancellationToken);
