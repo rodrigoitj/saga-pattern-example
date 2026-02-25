@@ -34,8 +34,6 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ENABLE_WATCH=false
-    ports:
-      - "5012:5012" # Debug port
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -55,8 +53,6 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ENABLE_WATCH=false
-    ports:
-      - "5013:5013" # Debug port
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -76,8 +72,6 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ENABLE_WATCH=false
-    ports:
-      - "5014:5014" # Debug port
     depends_on:
       rabbitmq:
         condition: service_healthy

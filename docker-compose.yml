@@ -29,9 +29,6 @@ services:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:8080
       - ConnectionStrings__DefaultConnection=Host=postgres;Database=BookingDb;Username=postgres;Password=postgres;Port=5432
-      - Services__FlightServiceUrl=http://flight-api:8080
-      - Services__HotelServiceUrl=http://hotel-api:8080
-      - Services__CarServiceUrl=http://car-api:8080
     ports:
       - "5001:8080"
     depends_on:
@@ -52,8 +49,6 @@ services:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:8080
       - ConnectionStrings__DefaultConnection=Host=postgres;Database=FlightDb;Username=postgres;Password=postgres;Port=5432
-    ports:
-      - "5002:8080"
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -74,8 +69,6 @@ services:
       - ASPNETCORE_URLS=http://+:8080
       - ASPNETCORE_ENVIRONMENT=Production
       - ConnectionStrings__DefaultConnection=Host=postgres;Database=HotelDb;Username=postgres;Password=postgres;Port=5432
-    ports:
-      - "5003:8080"
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -96,8 +89,6 @@ services:
       - ASPNETCORE_URLS=http://+:8080
       - ASPNETCORE_ENVIRONMENT=Production
       - ConnectionStrings__DefaultConnection=Host=postgres;Database=CarDb;Username=postgres;Password=postgres;Port=5432
-    ports:
-      - "5004:8080"
     depends_on:
       rabbitmq:
         condition: service_healthy

@@ -19,4 +19,13 @@ else {
 
 
 # Run the project in development mode using Docker Compose
-docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
+# Ask user if they want to build the images before starting the containers
+$buildResponse = Read-Host "Do you want to build the Docker images before starting the containers? (y/n)"
+if ($buildResponse -eq "y") {
+    Write-Host "Building Docker images..."
+    docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
+}
+else {
+    Write-Host "Skipping Docker image build..."
+    docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+}
