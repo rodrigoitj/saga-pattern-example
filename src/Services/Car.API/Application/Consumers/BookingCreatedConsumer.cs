@@ -40,6 +40,10 @@ public class BookingCreatedConsumer : IConsumer<BookingCreatedIntegrationEvent>
             _dbContext.CarRentals.Add(carRental);
             await _dbContext.SaveChangesAsync(context.CancellationToken);
 
+            carRental.Confirm();
+            _dbContext.CarRentals.Update(carRental);
+            await _dbContext.SaveChangesAsync(context.CancellationToken);
+
             await _publishEndpoint.Publish(
                 new BookingStepCompletedIntegrationEvent
                 {
@@ -54,6 +58,8 @@ public class BookingCreatedConsumer : IConsumer<BookingCreatedIntegrationEvent>
         }
         catch (Exception ex)
         {
+            // Mark as Failed in local database if entity was created
+            // Note: In a real scenario, you might want to track the failed entity for auditing
             await _publishEndpoint.Publish(
                 new BookingFailedIntegrationEvent
                 {

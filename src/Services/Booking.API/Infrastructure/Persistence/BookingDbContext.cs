@@ -28,6 +28,7 @@ public class BookingDbContext : BaseApplicationDbContext
             builder.HasKey(b => b.Id);
 
             builder.Property(b => b.Id).ValueGeneratedNever();
+            builder.Property(b => b.Version).IsRowVersion();
             builder.Property(b => b.ReferenceNumber).IsRequired();
             builder.Property(b => b.Status).HasConversion<string>();
             builder.Property(b => b.CreatedAt).IsRequired();

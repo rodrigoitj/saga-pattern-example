@@ -8,6 +8,7 @@ using Shared.Domain.Abstractions;
 /// </summary>
 public class Booking : AggregateRoot
 {
+    public uint Version { get; private set; }
     public string ReferenceNumber { get; private set; } = string.Empty;
     public Guid UserId { get; private set; }
     public BookingStatus Status { get; private set; } = BookingStatus.Pending;

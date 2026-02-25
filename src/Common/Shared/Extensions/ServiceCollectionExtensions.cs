@@ -1,4 +1,5 @@
 using MassTransit;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -40,6 +41,15 @@ public static class ServiceCollectionExtensions
                             h.Username(rabbitMqUsername);
                             h.Password(rabbitMqPassword);
                         }
+                    );
+
+                    cfg.UseMessageRetry(r =>
+                        r.Incremental(
+                                5,
+                                TimeSpan.FromMilliseconds(200),
+                                TimeSpan.FromMilliseconds(200)
+                            )
+                            .Handle<DbUpdateConcurrencyException>()
                     );
 
                     cfg.ConfigureEndpoints(context);
