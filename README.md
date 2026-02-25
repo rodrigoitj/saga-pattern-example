@@ -66,6 +66,18 @@ Content-Type: application/json
 ```http
 GET http://localhost:5001/api/bookings/{bookingId}
 ```
+## Todo list
+
+[x] Add inbox, outbox pattern for reliable message processing
+[] Add observability with OpenTelemetry metrics and logs
+[] Add Grafana dashboards for monitoring service health and RabbitMQ queues
+[] Add more comprehensive logging with Serilog
+[] Add Polly for resilience in HTTP calls and RabbitMQ interactions
+[] Write integration tests for the entire saga flow
+[] Implement retry policies for transient failures in consumers
+[] Add health checks for each service and RabbitMQ connectivity
+[] Create a frontend client to interact with the Booking API
+[] Configure CI/CD pipelines for automated testing and deployment
 
 ## Documentation
 
