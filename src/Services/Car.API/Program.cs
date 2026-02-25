@@ -14,6 +14,7 @@ builder.Services.AddDbContext<CarDbContext>(options => options.UseNpgsql(connect
 // Add RabbitMQ (MassTransit)
 builder.Services.AddRabbitMqMessaging(
     builder.Configuration,
+    endpointNamePrefix: "car",
     cfg =>
     {
         cfg.AddConsumer<BookingCreatedConsumer>();

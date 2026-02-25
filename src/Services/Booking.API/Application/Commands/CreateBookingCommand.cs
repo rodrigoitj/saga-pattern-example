@@ -1,7 +1,7 @@
 namespace Booking.API.Application.Commands;
 
-using MediatR;
 using Booking.API.Application.DTOs;
+using MediatR;
 
 /// <summary>
 /// Command to initiate a booking with flights, hotels, and cars.

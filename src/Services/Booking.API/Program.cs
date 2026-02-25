@@ -45,6 +45,7 @@ builder.Services.AddLogging();
 // Add RabbitMQ (MassTransit)
 builder.Services.AddRabbitMqMessaging(
     builder.Configuration,
+    endpointNamePrefix: "booking",
     cfg =>
     {
         cfg.AddConsumer<BookingFailedConsumer>();

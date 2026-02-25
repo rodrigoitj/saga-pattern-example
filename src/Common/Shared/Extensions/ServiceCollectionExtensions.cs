@@ -9,6 +9,7 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddRabbitMqMessaging(
         this IServiceCollection services,
         IConfiguration configuration,
+        string? endpointNamePrefix = null,
         Action<IBusRegistrationConfigurator>? configure = null
     )
     {
@@ -20,6 +21,13 @@ public static class ServiceCollectionExtensions
 
         services.AddMassTransit(x =>
         {
+            if (!string.IsNullOrWhiteSpace(endpointNamePrefix))
+            {
+                x.SetEndpointNameFormatter(
+                    new KebabCaseEndpointNameFormatter(endpointNamePrefix, false)
+                );
+            }
+
             configure?.Invoke(x);
             x.UsingRabbitMq(
                 (context, cfg) =>

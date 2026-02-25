@@ -14,6 +14,7 @@ builder.Services.AddDbContext<HotelDbContext>(options => options.UseNpgsql(conne
 // Add RabbitMQ (MassTransit)
 builder.Services.AddRabbitMqMessaging(
     builder.Configuration,
+    endpointNamePrefix: "hotel",
     cfg =>
     {
         cfg.AddConsumer<BookingCreatedConsumer>();
