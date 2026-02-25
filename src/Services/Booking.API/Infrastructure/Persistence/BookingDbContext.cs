@@ -2,9 +2,12 @@ namespace Booking.API.Infrastructure.Persistence;
 
 using Booking.API.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
+using Shared.Infrastructure.Messaging.Configuration;
+using Shared.Infrastructure.Messaging.Inbox;
+using Shared.Infrastructure.Messaging.Outbox;
 using Shared.Infrastructure.Persistence;
 
-public class BookingDbContext : BaseApplicationDbContext
+public class BookingDbContext : BaseApplicationDbContext, IOutboxInboxDbContext
 {
     public BookingDbContext(DbContextOptions<BookingDbContext> options)
         : base(options) { }
@@ -19,9 +22,13 @@ public class BookingDbContext : BaseApplicationDbContext
         get { return Set<BookingStep>(); }
     }
 
+    public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
+    public DbSet<InboxMessage> InboxMessages => Set<InboxMessage>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+        modelBuilder.ConfigureOutboxInbox();
 
         modelBuilder.Entity<Booking>(builder =>
         {

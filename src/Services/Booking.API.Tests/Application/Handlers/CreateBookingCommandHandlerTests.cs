@@ -9,28 +9,28 @@ using Booking.API.Application.DTOs;
 using Booking.API.Application.Handlers;
 using Booking.API.Domain.Entities;
 using FluentAssertions;
-using MassTransit;
 using Moq;
 using Shared.Domain.Abstractions;
 using Shared.Domain.IntegrationEvents;
+using Shared.Infrastructure.Messaging.Outbox;
 using Xunit;
 
 public class CreateBookingCommandHandlerTests
 {
     private readonly Mock<IRepository<Booking>> _repositoryMock;
     private readonly Mock<IMapper> _mapperMock;
-    private readonly Mock<IPublishEndpoint> _publishEndpointMock;
+    private readonly Mock<IOutboxPublisher> _outboxPublisherMock;
     private readonly CreateBookingCommandHandler _handler;
 
     public CreateBookingCommandHandlerTests()
     {
         _repositoryMock = new Mock<IRepository<Booking>>();
         _mapperMock = new Mock<IMapper>();
-        _publishEndpointMock = new Mock<IPublishEndpoint>();
+        _outboxPublisherMock = new Mock<IOutboxPublisher>();
         _handler = new CreateBookingCommandHandler(
             _repositoryMock.Object,
             _mapperMock.Object,
-            _publishEndpointMock.Object
+            _outboxPublisherMock.Object
         );
     }
 
@@ -67,9 +67,12 @@ public class CreateBookingCommandHandlerTests
         };
 
         _mapperMock.Setup(m => m.Map<BookingResponseDto>(It.IsAny<Booking>())).Returns(expectedDto);
-        _publishEndpointMock
+        _outboxPublisherMock
             .Setup(p =>
-                p.Publish(It.IsAny<BookingCreatedIntegrationEvent>(), It.IsAny<CancellationToken>())
+                p.PublishAsync(
+                    It.IsAny<BookingCreatedIntegrationEvent>(),
+                    It.IsAny<CancellationToken>()
+                )
             )
             .Returns(Task.CompletedTask);
 
@@ -94,9 +97,9 @@ public class CreateBookingCommandHandlerTests
             m => m.Map<BookingResponseDto>(It.Is<Booking>(b => b == capturedBooking)),
             Times.Once
         );
-        _publishEndpointMock.Verify(
+        _outboxPublisherMock.Verify(
             p =>
-                p.Publish(
+                p.PublishAsync(
                     It.IsAny<BookingCreatedIntegrationEvent>(),
                     It.IsAny<CancellationToken>()
                 ),
@@ -128,9 +131,12 @@ public class CreateBookingCommandHandlerTests
         _mapperMock
             .Setup(m => m.Map<BookingResponseDto>(It.IsAny<Booking>()))
             .Returns(new BookingResponseDto());
-        _publishEndpointMock
+        _outboxPublisherMock
             .Setup(p =>
-                p.Publish(It.IsAny<BookingCreatedIntegrationEvent>(), It.IsAny<CancellationToken>())
+                p.PublishAsync(
+                    It.IsAny<BookingCreatedIntegrationEvent>(),
+                    It.IsAny<CancellationToken>()
+                )
             )
             .Returns(Task.CompletedTask);
 
@@ -169,9 +175,12 @@ public class CreateBookingCommandHandlerTests
         _mapperMock
             .Setup(m => m.Map<BookingResponseDto>(It.IsAny<Booking>()))
             .Returns(new BookingResponseDto());
-        _publishEndpointMock
+        _outboxPublisherMock
             .Setup(p =>
-                p.Publish(It.IsAny<BookingCreatedIntegrationEvent>(), It.IsAny<CancellationToken>())
+                p.PublishAsync(
+                    It.IsAny<BookingCreatedIntegrationEvent>(),
+                    It.IsAny<CancellationToken>()
+                )
             )
             .Returns(Task.CompletedTask);
 

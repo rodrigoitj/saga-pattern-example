@@ -4,30 +4,32 @@ using AutoMapper;
 using Booking.API.Application.Commands;
 using Booking.API.Application.DTOs;
 using Booking.API.Domain.Entities;
-using MassTransit;
 using MediatR;
 using Shared.Domain.Abstractions;
 using Shared.Domain.IntegrationEvents;
+using Shared.Infrastructure.Messaging.Outbox;
 
 /// <summary>
 /// Handler for CreateBookingCommand.
 /// Implements CQRS - handles command execution.
+/// Uses the outbox pattern: the integration event is saved to the OutboxMessages table
+/// in the same transaction as the booking, ensuring reliable message delivery.
 /// </summary>
 public class CreateBookingCommandHandler : IRequestHandler<CreateBookingCommand, BookingResponseDto>
 {
     private readonly IRepository<Booking> _bookingRepository;
     private readonly IMapper _mapper;
-    private readonly IPublishEndpoint _publishEndpoint;
+    private readonly IOutboxPublisher _outboxPublisher;
 
     public CreateBookingCommandHandler(
         IRepository<Booking> bookingRepository,
         IMapper mapper,
-        IPublishEndpoint publishEndpoint
+        IOutboxPublisher outboxPublisher
     )
     {
         _bookingRepository = bookingRepository;
         _mapper = mapper;
-        _publishEndpoint = publishEndpoint;
+        _outboxPublisher = outboxPublisher;
     }
 
     public async Task<BookingResponseDto> Handle(
@@ -51,9 +53,9 @@ public class CreateBookingCommandHandler : IRequestHandler<CreateBookingCommand,
         );
         booking.MarkAsProcessing();
 
-        // Add to repository
+        // Add booking and outbox message to the same DbContext change tracker,
+        // then SaveChanges persists both atomically in a single transaction.
         await _bookingRepository.AddAsync(booking, cancellationToken);
-        await _bookingRepository.SaveChangesAsync(cancellationToken);
 
         var integrationEvent = new BookingCreatedIntegrationEvent
         {
@@ -67,7 +69,8 @@ public class CreateBookingCommandHandler : IRequestHandler<CreateBookingCommand,
             ReferenceNumber = booking.ReferenceNumber,
         };
 
-        await _publishEndpoint.Publish(integrationEvent, cancellationToken);
+        await _outboxPublisher.PublishAsync(integrationEvent, cancellationToken);
+        await _bookingRepository.SaveChangesAsync(cancellationToken);
 
         return _mapper.Map<BookingResponseDto>(booking);
     }

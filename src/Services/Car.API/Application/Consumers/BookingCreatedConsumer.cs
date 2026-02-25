@@ -4,16 +4,17 @@ using Car.API.Domain.Entities;
 using Car.API.Infrastructure.Persistence;
 using MassTransit;
 using Shared.Domain.IntegrationEvents;
+using Shared.Infrastructure.Messaging.Outbox;
 
 public class BookingCreatedConsumer : IConsumer<BookingCreatedIntegrationEvent>
 {
     private readonly CarDbContext _dbContext;
-    private readonly IPublishEndpoint _publishEndpoint;
+    private readonly IOutboxPublisher _outboxPublisher;
 
-    public BookingCreatedConsumer(CarDbContext dbContext, IPublishEndpoint publishEndpoint)
+    public BookingCreatedConsumer(CarDbContext dbContext, IOutboxPublisher outboxPublisher)
     {
         _dbContext = dbContext;
-        _publishEndpoint = publishEndpoint;
+        _outboxPublisher = outboxPublisher;
     }
 
     public async Task Consume(ConsumeContext<BookingCreatedIntegrationEvent> context)
@@ -38,13 +39,10 @@ public class BookingCreatedConsumer : IConsumer<BookingCreatedIntegrationEvent>
             );
 
             _dbContext.CarRentals.Add(carRental);
-            await _dbContext.SaveChangesAsync(context.CancellationToken);
-
             carRental.Confirm();
-            _dbContext.CarRentals.Update(carRental);
-            await _dbContext.SaveChangesAsync(context.CancellationToken);
 
-            await _publishEndpoint.Publish(
+            // Save the outbox message in the same transaction as the car rental
+            await _outboxPublisher.PublishAsync(
                 new BookingStepCompletedIntegrationEvent
                 {
                     BookingId = message.BookingId,
@@ -55,12 +53,16 @@ public class BookingCreatedConsumer : IConsumer<BookingCreatedIntegrationEvent>
                 },
                 context.CancellationToken
             );
+
+            await _dbContext.SaveChangesAsync(context.CancellationToken);
         }
         catch (Exception ex)
         {
-            // Mark as Failed in local database if entity was created
-            // Note: In a real scenario, you might want to track the failed entity for auditing
-            await _publishEndpoint.Publish(
+            // Clear tracked entities from the failed operation
+            _dbContext.ChangeTracker.Clear();
+
+            // Save failure event to outbox — the outbox processor will publish it later
+            await _outboxPublisher.PublishAsync(
                 new BookingFailedIntegrationEvent
                 {
                     BookingId = message.BookingId,
@@ -69,6 +71,8 @@ public class BookingCreatedConsumer : IConsumer<BookingCreatedIntegrationEvent>
                 },
                 context.CancellationToken
             );
+
+            await _dbContext.SaveChangesAsync(context.CancellationToken);
         }
     }
 }

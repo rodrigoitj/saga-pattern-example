@@ -42,6 +42,9 @@ builder.Services.AddScoped<IRepository<Booking.API.Domain.Entities.Booking>, Boo
 // Add logging
 builder.Services.AddLogging();
 
+// Add outbox/inbox pattern for reliable messaging
+builder.Services.AddOutboxInbox<BookingDbContext>();
+
 // Add RabbitMQ (MassTransit)
 builder.Services.AddRabbitMqMessaging(
     builder.Configuration,
@@ -50,7 +53,8 @@ builder.Services.AddRabbitMqMessaging(
     {
         cfg.AddConsumer<BookingFailedConsumer>();
         cfg.AddConsumer<BookingStepCompletedConsumer>();
-    }
+    },
+    useInbox: true
 );
 
 var app = builder.Build();

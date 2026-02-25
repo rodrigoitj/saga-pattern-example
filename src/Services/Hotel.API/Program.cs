@@ -11,6 +11,9 @@ var connectionString =
 
 builder.Services.AddDbContext<HotelDbContext>(options => options.UseNpgsql(connectionString));
 
+// Add outbox/inbox pattern for reliable messaging
+builder.Services.AddOutboxInbox<HotelDbContext>();
+
 // Add RabbitMQ (MassTransit)
 builder.Services.AddRabbitMqMessaging(
     builder.Configuration,
@@ -19,7 +22,8 @@ builder.Services.AddRabbitMqMessaging(
     {
         cfg.AddConsumer<BookingCreatedConsumer>();
         cfg.AddConsumer<BookingFailedConsumer>();
-    }
+    },
+    useInbox: true
 );
 
 var app = builder.Build();

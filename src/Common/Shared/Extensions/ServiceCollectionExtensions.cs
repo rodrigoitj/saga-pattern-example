@@ -2,16 +2,34 @@ using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Shared.Infrastructure.Messaging.Configuration;
+using Shared.Infrastructure.Messaging.Inbox;
+using Shared.Infrastructure.Messaging.Outbox;
 
 namespace Shared.Infrastructure.Extensions;
 
 public static class ServiceCollectionExtensions
 {
+    /// <summary>
+    /// Registers the outbox publisher, outbox processor background service, and inbox consume filter.
+    /// The TDbContext must implement <see cref="IOutboxInboxDbContext"/>.
+    /// </summary>
+    public static IServiceCollection AddOutboxInbox<TDbContext>(this IServiceCollection services)
+        where TDbContext : DbContext, IOutboxInboxDbContext
+    {
+        services.AddScoped<IOutboxInboxDbContext>(sp => sp.GetRequiredService<TDbContext>());
+        services.AddScoped<IOutboxPublisher, OutboxPublisher>();
+        services.AddScoped(typeof(InboxConsumeFilter<>));
+        services.AddHostedService<OutboxProcessor>();
+        return services;
+    }
+
     public static IServiceCollection AddRabbitMqMessaging(
         this IServiceCollection services,
         IConfiguration configuration,
         string? endpointNamePrefix = null,
-        Action<IBusRegistrationConfigurator>? configure = null
+        Action<IBusRegistrationConfigurator>? configure = null,
+        bool useInbox = false
     )
     {
         var rabbitMqSection = configuration.GetSection("RabbitMQ");
@@ -51,6 +69,11 @@ public static class ServiceCollectionExtensions
                             )
                             .Handle<DbUpdateConcurrencyException>()
                     );
+
+                    if (useInbox)
+                    {
+                        cfg.UseConsumeFilter(typeof(InboxConsumeFilter<>), context);
+                    }
 
                     cfg.ConfigureEndpoints(context);
                 }
