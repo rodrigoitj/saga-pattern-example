@@ -70,7 +70,7 @@ GET http://localhost:5001/api/bookings/{bookingId}
 
 [x] Add inbox, outbox pattern for reliable message processing
 [x] Add observability with OpenTelemetry metrics and logs
-[] Add Grafana dashboards for monitoring service health and RabbitMQ queues
+[x] Add Grafana dashboards for monitoring service health and RabbitMQ queues
 [] Add more comprehensive logging with Serilog
 [] Add Polly for resilience in HTTP calls and RabbitMQ interactions
 [] Write integration tests for the entire saga flow
