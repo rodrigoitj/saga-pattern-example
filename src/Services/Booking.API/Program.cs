@@ -1,5 +1,6 @@
 using Booking.API.Application.Consumers;
 using Booking.API.Application.Mappings;
+using Booking.API.Application.Observability;
 using Booking.API.Application.Validators;
 using Booking.API.Infrastructure.Persistence;
 using Booking.API.Infrastructure.Repositories;
@@ -10,6 +11,8 @@ using Shared.Infrastructure.Extensions;
 using Shared.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.AddObservability("booking-api");
 
 // Add services to the container
 builder.Services.AddControllers();
@@ -38,9 +41,7 @@ builder.Services.AddAutoMapper(typeof(BookingMappingProfile));
 
 // Add Repositories
 builder.Services.AddScoped<IRepository<Booking.API.Domain.Entities.Booking>, BookingRepository>();
-
-// Add logging
-builder.Services.AddLogging();
+builder.Services.AddSingleton<BookingMetrics>();
 
 // Add outbox/inbox pattern for reliable messaging
 builder.Services.AddOutboxInbox<BookingDbContext>();
@@ -58,6 +59,8 @@ builder.Services.AddRabbitMqMessaging(
 );
 
 var app = builder.Build();
+
+app.UseObservability();
 
 // Configure the HTTP request pipeline
 if (app.Environment.IsDevelopment())

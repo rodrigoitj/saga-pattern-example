@@ -20,6 +20,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IOutboxInboxDbContext>(sp => sp.GetRequiredService<TDbContext>());
         services.AddScoped<IOutboxPublisher, OutboxPublisher>();
         services.AddScoped(typeof(InboxConsumeFilter<>));
+        services.AddScoped(typeof(MessageCorrelationLoggingFilter<>));
         services.AddHostedService<OutboxProcessor>();
         return services;
     }
@@ -74,6 +75,8 @@ public static class ServiceCollectionExtensions
                     {
                         cfg.UseConsumeFilter(typeof(InboxConsumeFilter<>), context);
                     }
+
+                    cfg.UseConsumeFilter(typeof(MessageCorrelationLoggingFilter<>), context);
 
                     cfg.ConfigureEndpoints(context);
                 }

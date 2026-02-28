@@ -7,6 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Shared.Infrastructure.Messaging.Configuration;
+using Shared.Infrastructure.Observability;
 
 /// <summary>
 /// Background service that periodically polls the OutboxMessages table for unprocessed messages
@@ -17,14 +18,20 @@ public class OutboxProcessor : BackgroundService
 {
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<OutboxProcessor> _logger;
+    private readonly MessagingMetrics _messagingMetrics;
     private readonly TimeSpan _pollingInterval = TimeSpan.FromSeconds(5);
     private const int BatchSize = 20;
     private const int MaxRetryCount = 5;
 
-    public OutboxProcessor(IServiceScopeFactory scopeFactory, ILogger<OutboxProcessor> logger)
+    public OutboxProcessor(
+        IServiceScopeFactory scopeFactory,
+        ILogger<OutboxProcessor> logger,
+        MessagingMetrics messagingMetrics
+    )
     {
         _scopeFactory = scopeFactory;
         _logger = logger;
+        _messagingMetrics = messagingMetrics;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -73,6 +80,7 @@ public class OutboxProcessor : BackgroundService
         {
             try
             {
+                var startedAt = DateTime.UtcNow;
                 var messageType = Type.GetType(message.Type);
                 if (messageType is null)
                 {
@@ -83,6 +91,7 @@ public class OutboxProcessor : BackgroundService
                     );
                     message.Error = $"Could not resolve type: {message.Type}";
                     message.RetryCount = MaxRetryCount; // permanent failure
+                    _messagingMetrics.RecordOutboxPublishFailed(message.Type);
                     continue;
                 }
 
@@ -95,6 +104,7 @@ public class OutboxProcessor : BackgroundService
                     );
                     message.Error = "Deserialization returned null";
                     message.RetryCount = MaxRetryCount; // permanent failure
+                    _messagingMetrics.RecordOutboxPublishFailed(message.Type);
                     continue;
                 }
 
@@ -108,12 +118,18 @@ public class OutboxProcessor : BackgroundService
                     message.Id,
                     message.Type
                 );
+
+                _messagingMetrics.RecordOutboxPublished(
+                    messageType.Name,
+                    (DateTime.UtcNow - startedAt).TotalMilliseconds
+                );
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to publish outbox message {Id}", message.Id);
                 message.Error = ex.Message;
                 message.RetryCount++;
+                _messagingMetrics.RecordOutboxPublishFailed(message.Type);
             }
         }
 

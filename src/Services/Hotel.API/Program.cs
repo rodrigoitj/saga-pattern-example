@@ -1,9 +1,13 @@
 using Hotel.API.Application.Consumers;
+using Hotel.API.Application.Observability;
 using Hotel.API.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Shared.Infrastructure.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.AddObservability("hotel-api");
+builder.Services.AddSingleton<HotelMetrics>();
 
 var connectionString =
     builder.Configuration.GetConnectionString("DefaultConnection")
@@ -27,6 +31,8 @@ builder.Services.AddRabbitMqMessaging(
 );
 
 var app = builder.Build();
+
+app.UseObservability();
 
 using (var scope = app.Services.CreateScope())
 {

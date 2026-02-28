@@ -1,0 +1,28 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - "prometheus-recording-rules.yml"
+  - "prometheus-alerts.yml"
+
+scrape_configs:
+  - job_name: booking-api
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["booking-api-dev:8080"]
+
+  - job_name: flight-api
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["flight-api-dev:8080"]
+
+  - job_name: hotel-api
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["hotel-api-dev:8080"]
+
+  - job_name: car-api
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["car-api-dev:8080"]

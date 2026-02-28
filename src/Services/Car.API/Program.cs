@@ -1,9 +1,13 @@
 using Car.API.Application.Consumers;
+using Car.API.Application.Observability;
 using Car.API.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Shared.Infrastructure.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.AddObservability("car-api");
+builder.Services.AddSingleton<CarMetrics>();
 
 var connectionString =
     builder.Configuration.GetConnectionString("DefaultConnection")
@@ -27,6 +31,8 @@ builder.Services.AddRabbitMqMessaging(
 );
 
 var app = builder.Build();
+
+app.UseObservability();
 
 using (var scope = app.Services.CreateScope())
 {

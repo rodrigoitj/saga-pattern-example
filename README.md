@@ -69,7 +69,7 @@ GET http://localhost:5001/api/bookings/{bookingId}
 ## Todo list
 
 [x] Add inbox, outbox pattern for reliable message processing
-[] Add observability with OpenTelemetry metrics and logs
+[x] Add observability with OpenTelemetry metrics and logs
 [] Add Grafana dashboards for monitoring service health and RabbitMQ queues
 [] Add more comprehensive logging with Serilog
 [] Add Polly for resilience in HTTP calls and RabbitMQ interactions
@@ -86,6 +86,7 @@ GET http://localhost:5001/api/bookings/{bookingId}
 - [CQRS_AND_SAGA_GUIDE.md](CQRS_AND_SAGA_GUIDE.md)
 - [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)
 - [DOCKER_DEV_GUIDE.md](DOCKER_DEV_GUIDE.md)
+- [OBSERVABILITY.md](OBSERVABILITY.md)
 
 ## License
 

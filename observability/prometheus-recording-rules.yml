@@ -1,0 +1,167 @@
+###############################################################################
+# Prometheus Recording Rules — Saga Pattern Booking Platform
+#
+# Pre-aggregates expensive queries to speed up dashboards and alert evaluation.
+# All source metrics are validated against the codebase instrumentation.
+###############################################################################
+groups:
+  # ─────────────────────────── HTTP / RED Recording Rules ────────────────────
+  - name: http_recording_rules
+    interval: 15s
+    rules:
+      # ── Per-service request rate ───────────────────────────────────────────
+      - record: job:http_server_request_rate5m:sum
+        expr: sum by (job) (rate(http_server_request_duration_seconds_count[5m]))
+
+      # ── Per-service error rate (5xx) ───────────────────────────────────────
+      - record: job:http_server_error_rate5m:ratio
+        expr: |
+          sum by (job) (rate(http_server_request_duration_seconds_count{http_response_status_code=~"5.."}[5m]))
+          /
+          clamp_min(sum by (job) (rate(http_server_request_duration_seconds_count[5m])), 0.001)
+
+      # ── Per-service latency percentiles ────────────────────────────────────
+      - record: job:http_server_request_duration_seconds:p50
+        expr: |
+          histogram_quantile(0.50,
+            sum by (job, le) (rate(http_server_request_duration_seconds_bucket[5m]))
+          )
+
+      - record: job:http_server_request_duration_seconds:p95
+        expr: |
+          histogram_quantile(0.95,
+            sum by (job, le) (rate(http_server_request_duration_seconds_bucket[5m]))
+          )
+
+      - record: job:http_server_request_duration_seconds:p99
+        expr: |
+          histogram_quantile(0.99,
+            sum by (job, le) (rate(http_server_request_duration_seconds_bucket[5m]))
+          )
+
+      # ── Global request rate ────────────────────────────────────────────────
+      - record: cluster:http_server_request_rate5m:sum
+        expr: sum(rate(http_server_request_duration_seconds_count[5m]))
+
+      # ── Global error rate ──────────────────────────────────────────────────
+      - record: cluster:http_server_error_rate5m:ratio
+        expr: |
+          sum(rate(http_server_request_duration_seconds_count{http_response_status_code=~"5.."}[5m]))
+          /
+          clamp_min(sum(rate(http_server_request_duration_seconds_count[5m])), 0.001)
+
+  # ─────────────────────────── Saga / Booking Recording Rules ────────────────
+  - name: saga_recording_rules
+    interval: 15s
+    rules:
+      # ── Booking success rate ───────────────────────────────────────────────
+      - record: saga:booking_success_rate5m:ratio
+        expr: |
+          rate(booking_confirmed_total[5m])
+          /
+          clamp_min(rate(booking_created_total[5m]), 0.001)
+
+      # ── Booking failure rate ───────────────────────────────────────────────
+      - record: saga:booking_failure_rate5m:ratio
+        expr: |
+          rate(booking_failed_total[5m])
+          /
+          clamp_min(rate(booking_created_total[5m]), 0.001)
+
+      # ── Saga duration percentiles ──────────────────────────────────────────
+      - record: saga:booking_creation_duration_seconds:p50
+        expr: |
+          histogram_quantile(0.50,
+            sum by (le) (rate(booking_creation_duration_seconds_bucket[5m]))
+          )
+
+      - record: saga:booking_creation_duration_seconds:p95
+        expr: |
+          histogram_quantile(0.95,
+            sum by (le) (rate(booking_creation_duration_seconds_bucket[5m]))
+          )
+
+      - record: saga:booking_creation_duration_seconds:p99
+        expr: |
+          histogram_quantile(0.99,
+            sum by (le) (rate(booking_creation_duration_seconds_bucket[5m]))
+          )
+
+      # ── Booking throughput (per minute) ────────────────────────────────────
+      - record: saga:booking_throughput_per_minute:rate5m
+        expr: rate(booking_created_total[5m]) * 60
+
+      # ── Revenue throughput (per minute) ────────────────────────────────────
+      - record: saga:booking_revenue_per_minute:rate5m
+        expr: rate(booking_revenue_total[5m]) * 60
+
+  # ─────────────────────────── Sub-Service Recording Rules ───────────────────
+  - name: sub_service_recording_rules
+    interval: 15s
+    rules:
+      # ── Flight success rate ────────────────────────────────────────────────
+      - record: saga:flight_success_rate5m:ratio
+        expr: |
+          rate(flight_reservations_confirmed_total[5m])
+          /
+          clamp_min(rate(flight_reservations_created_total[5m]), 0.001)
+
+      # ── Hotel success rate ─────────────────────────────────────────────────
+      - record: saga:hotel_success_rate5m:ratio
+        expr: |
+          rate(hotel_reservations_confirmed_total[5m])
+          /
+          clamp_min(rate(hotel_reservations_created_total[5m]), 0.001)
+
+      # ── Car success rate ───────────────────────────────────────────────────
+      - record: saga:car_success_rate5m:ratio
+        expr: |
+          rate(car_rentals_confirmed_total[5m])
+          /
+          clamp_min(rate(car_rentals_created_total[5m]), 0.001)
+
+      # ── Flight processing p95 ─────────────────────────────────────────────
+      - record: saga:flight_processing_duration_seconds:p95
+        expr: |
+          histogram_quantile(0.95,
+            sum by (le) (rate(flight_reservation_processing_duration_seconds_bucket[5m]))
+          )
+
+      # ── Hotel processing p95 ──────────────────────────────────────────────
+      - record: saga:hotel_processing_duration_seconds:p95
+        expr: |
+          histogram_quantile(0.95,
+            sum by (le) (rate(hotel_reservation_processing_duration_seconds_bucket[5m]))
+          )
+
+      # ── Car processing p95 ────────────────────────────────────────────────
+      - record: saga:car_processing_duration_seconds:p95
+        expr: |
+          histogram_quantile(0.95,
+            sum by (le) (rate(car_rental_processing_duration_seconds_bucket[5m]))
+          )
+
+  # ─────────────────────────── Messaging Recording Rules ─────────────────────
+  - name: messaging_recording_rules
+    interval: 15s
+    rules:
+      # ── Outbox backlog ─────────────────────────────────────────────────────
+      - record: job:messaging_outbox_backlog:gauge
+        expr: |
+          sum by (job) (messaging_outbox_enqueued_total)
+          -
+          sum by (job) (messaging_outbox_published_total)
+
+      # ── Outbox publish avg latency (ms) ────────────────────────────────────
+      - record: job:messaging_outbox_publish_avg_latency_ms:rate5m
+        expr: |
+          rate(messaging_outbox_publish_duration_ms_sum[5m])
+          /
+          clamp_min(rate(messaging_outbox_publish_duration_ms_count[5m]), 0.001)
+
+      # ── Inbox consume avg latency (ms) ─────────────────────────────────────
+      - record: job:messaging_inbox_consume_avg_latency_ms:rate5m
+        expr: |
+          rate(messaging_inbox_consume_duration_ms_sum[5m])
+          /
+          clamp_min(rate(messaging_inbox_consume_duration_ms_count[5m]), 0.001)

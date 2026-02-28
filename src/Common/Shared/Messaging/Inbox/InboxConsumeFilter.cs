@@ -4,6 +4,7 @@ using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Shared.Infrastructure.Messaging.Configuration;
+using Shared.Infrastructure.Observability;
 
 /// <summary>
 /// MassTransit consume filter that provides idempotent message processing.
@@ -15,14 +16,17 @@ public class InboxConsumeFilter<T> : IFilter<ConsumeContext<T>>
 {
     private readonly IOutboxInboxDbContext _dbContext;
     private readonly ILogger<InboxConsumeFilter<T>> _logger;
+    private readonly MessagingMetrics _messagingMetrics;
 
     public InboxConsumeFilter(
         IOutboxInboxDbContext dbContext,
-        ILogger<InboxConsumeFilter<T>> logger
+        ILogger<InboxConsumeFilter<T>> logger,
+        MessagingMetrics messagingMetrics
     )
     {
         _dbContext = dbContext;
         _logger = logger;
+        _messagingMetrics = messagingMetrics;
     }
 
     public async Task Send(ConsumeContext<T> context, IPipe<ConsumeContext<T>> next)
@@ -50,9 +54,12 @@ public class InboxConsumeFilter<T> : IFilter<ConsumeContext<T>>
                 messageId.Value,
                 typeof(T).Name
             );
+
+            _messagingMetrics.RecordInboxDuplicateSkipped(typeof(T).Name);
             return;
         }
 
+        var startedAt = DateTime.UtcNow;
         await next.Send(context);
 
         _dbContext.InboxMessages.Add(
@@ -71,6 +78,11 @@ public class InboxConsumeFilter<T> : IFilter<ConsumeContext<T>>
             "Recorded inbox entry for message {MessageId} of type {MessageType}",
             messageId.Value,
             typeof(T).Name
+        );
+
+        _messagingMetrics.RecordInboxConsumed(
+            typeof(T).Name,
+            (DateTime.UtcNow - startedAt).TotalMilliseconds
         );
     }
 

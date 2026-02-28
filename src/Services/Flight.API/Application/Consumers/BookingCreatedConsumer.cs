@@ -1,5 +1,7 @@
 namespace Flight.API.Application.Consumers;
 
+using System.Diagnostics;
+using Flight.API.Application.Observability;
 using Flight.API.Domain.Entities;
 using Flight.API.Infrastructure.Persistence;
 using MassTransit;
@@ -10,11 +12,17 @@ public class BookingCreatedConsumer : IConsumer<BookingCreatedIntegrationEvent>
 {
     private readonly FlightDbContext _dbContext;
     private readonly IOutboxPublisher _outboxPublisher;
+    private readonly FlightMetrics _flightMetrics;
 
-    public BookingCreatedConsumer(FlightDbContext dbContext, IOutboxPublisher outboxPublisher)
+    public BookingCreatedConsumer(
+        FlightDbContext dbContext,
+        IOutboxPublisher outboxPublisher,
+        FlightMetrics flightMetrics
+    )
     {
         _dbContext = dbContext;
         _outboxPublisher = outboxPublisher;
+        _flightMetrics = flightMetrics;
     }
 
     public async Task Consume(ConsumeContext<BookingCreatedIntegrationEvent> context)
@@ -24,6 +32,8 @@ public class BookingCreatedConsumer : IConsumer<BookingCreatedIntegrationEvent>
         {
             return;
         }
+
+        var stopwatch = Stopwatch.StartNew();
 
         try
         {
@@ -55,9 +65,18 @@ public class BookingCreatedConsumer : IConsumer<BookingCreatedIntegrationEvent>
             );
 
             await _dbContext.SaveChangesAsync(context.CancellationToken);
+
+            stopwatch.Stop();
+            _flightMetrics.RecordReservationCreated();
+            _flightMetrics.RecordReservationConfirmed(flightBooking.Price);
+            _flightMetrics.RecordProcessingDuration(stopwatch.Elapsed.TotalSeconds, "confirmed");
         }
         catch (Exception ex)
         {
+            stopwatch.Stop();
+            _flightMetrics.RecordReservationFailed(ex.GetType().Name);
+            _flightMetrics.RecordProcessingDuration(stopwatch.Elapsed.TotalSeconds, "failed");
+
             // Clear tracked entities from the failed operation
             _dbContext.ChangeTracker.Clear();
 

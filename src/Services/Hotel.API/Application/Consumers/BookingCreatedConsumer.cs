@@ -1,5 +1,7 @@
 namespace Hotel.API.Application.Consumers;
 
+using System.Diagnostics;
+using Hotel.API.Application.Observability;
 using Hotel.API.Domain.Entities;
 using Hotel.API.Infrastructure.Persistence;
 using MassTransit;
@@ -10,11 +12,17 @@ public class BookingCreatedConsumer : IConsumer<BookingCreatedIntegrationEvent>
 {
     private readonly HotelDbContext _dbContext;
     private readonly IOutboxPublisher _outboxPublisher;
+    private readonly HotelMetrics _hotelMetrics;
 
-    public BookingCreatedConsumer(HotelDbContext dbContext, IOutboxPublisher outboxPublisher)
+    public BookingCreatedConsumer(
+        HotelDbContext dbContext,
+        IOutboxPublisher outboxPublisher,
+        HotelMetrics hotelMetrics
+    )
     {
         _dbContext = dbContext;
         _outboxPublisher = outboxPublisher;
+        _hotelMetrics = hotelMetrics;
     }
 
     public async Task Consume(ConsumeContext<BookingCreatedIntegrationEvent> context)
@@ -24,6 +32,8 @@ public class BookingCreatedConsumer : IConsumer<BookingCreatedIntegrationEvent>
         {
             return;
         }
+
+        var stopwatch = Stopwatch.StartNew();
 
         try
         {
@@ -55,9 +65,18 @@ public class BookingCreatedConsumer : IConsumer<BookingCreatedIntegrationEvent>
             );
 
             await _dbContext.SaveChangesAsync(context.CancellationToken);
+
+            stopwatch.Stop();
+            _hotelMetrics.RecordReservationCreated();
+            _hotelMetrics.RecordReservationConfirmed(hotelBooking.TotalPrice);
+            _hotelMetrics.RecordProcessingDuration(stopwatch.Elapsed.TotalSeconds, "confirmed");
         }
         catch (Exception ex)
         {
+            stopwatch.Stop();
+            _hotelMetrics.RecordReservationFailed(ex.GetType().Name);
+            _hotelMetrics.RecordProcessingDuration(stopwatch.Elapsed.TotalSeconds, "failed");
+
             // Clear tracked entities from the failed operation
             _dbContext.ChangeTracker.Clear();
 

@@ -1,9 +1,13 @@
 using Flight.API.Application.Consumers;
+using Flight.API.Application.Observability;
 using Flight.API.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Shared.Infrastructure.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.AddObservability("flight-api");
+builder.Services.AddSingleton<FlightMetrics>();
 
 var connectionString =
     builder.Configuration.GetConnectionString("DefaultConnection")
@@ -27,6 +31,8 @@ builder.Services.AddRabbitMqMessaging(
 );
 
 var app = builder.Build();
+
+app.UseObservability();
 
 using (var scope = app.Services.CreateScope())
 {

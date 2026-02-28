@@ -2,6 +2,7 @@ namespace Shared.Infrastructure.Messaging.Outbox;
 
 using System.Text.Json;
 using Shared.Infrastructure.Messaging.Configuration;
+using Shared.Infrastructure.Observability;
 
 /// <summary>
 /// Saves messages to the OutboxMessages table instead of publishing directly to RabbitMQ.
@@ -11,10 +12,12 @@ using Shared.Infrastructure.Messaging.Configuration;
 public class OutboxPublisher : IOutboxPublisher
 {
     private readonly IOutboxInboxDbContext _dbContext;
+    private readonly MessagingMetrics _messagingMetrics;
 
-    public OutboxPublisher(IOutboxInboxDbContext dbContext)
+    public OutboxPublisher(IOutboxInboxDbContext dbContext, MessagingMetrics messagingMetrics)
     {
         _dbContext = dbContext;
+        _messagingMetrics = messagingMetrics;
     }
 
     public async Task PublishAsync<T>(T message, CancellationToken cancellationToken = default)
@@ -29,5 +32,6 @@ public class OutboxPublisher : IOutboxPublisher
         };
 
         await _dbContext.OutboxMessages.AddAsync(outboxMessage, cancellationToken);
+        _messagingMetrics.RecordOutboxEnqueued(typeof(T).Name);
     }
 }

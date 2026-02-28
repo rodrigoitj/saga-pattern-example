@@ -3,8 +3,10 @@ namespace Booking.API.Application.Handlers;
 using AutoMapper;
 using Booking.API.Application.Commands;
 using Booking.API.Application.DTOs;
+using Booking.API.Application.Observability;
 using Booking.API.Domain.Entities;
 using MediatR;
+using Microsoft.Extensions.Logging.Abstractions;
 using Shared.Domain.Abstractions;
 using Shared.Domain.IntegrationEvents;
 using Shared.Infrastructure.Messaging.Outbox;
@@ -20,16 +22,22 @@ public class CreateBookingCommandHandler : IRequestHandler<CreateBookingCommand,
     private readonly IRepository<Booking> _bookingRepository;
     private readonly IMapper _mapper;
     private readonly IOutboxPublisher _outboxPublisher;
+    private readonly BookingMetrics? _bookingMetrics;
+    private readonly ILogger<CreateBookingCommandHandler> _logger;
 
     public CreateBookingCommandHandler(
         IRepository<Booking> bookingRepository,
         IMapper mapper,
-        IOutboxPublisher outboxPublisher
+        IOutboxPublisher outboxPublisher,
+        BookingMetrics? bookingMetrics = null,
+        ILogger<CreateBookingCommandHandler>? logger = null
     )
     {
         _bookingRepository = bookingRepository;
         _mapper = mapper;
         _outboxPublisher = outboxPublisher;
+        _bookingMetrics = bookingMetrics;
+        _logger = logger ?? NullLogger<CreateBookingCommandHandler>.Instance;
     }
 
     public async Task<BookingResponseDto> Handle(
@@ -71,6 +79,18 @@ public class CreateBookingCommandHandler : IRequestHandler<CreateBookingCommand,
 
         await _outboxPublisher.PublishAsync(integrationEvent, cancellationToken);
         await _bookingRepository.SaveChangesAsync(cancellationToken);
+
+        _bookingMetrics?.RecordBookingCreated(
+            request.IncludeFlights,
+            request.IncludeHotel,
+            request.IncludeCar
+        );
+
+        _logger.LogInformation(
+            "Booking created and event enqueued for processing. BookingId: {BookingId}, ReferenceNumber: {ReferenceNumber}",
+            booking.Id,
+            booking.ReferenceNumber
+        );
 
         return _mapper.Map<BookingResponseDto>(booking);
     }

@@ -1,0 +1,294 @@
+###############################################################################
+# Prometheus Alert Rules — Saga Pattern Booking Platform
+#
+# References only metrics that exist in the codebase:
+#   - http_server_request_duration_seconds (OTel auto-instrumented histogram)
+#   - booking_*, flight_reservations_*, hotel_reservations_*, car_rentals_*
+#   - messaging_outbox_*, messaging_inbox_*
+#   - process_runtime_dotnet_gc_*, process_cpu_count
+# Kubernetes / cAdvisor metrics are prefixed container_* / kube_*.
+###############################################################################
+groups:
+  # ─────────────────────────── Service-Level Alerts ──────────────────────────
+  - name: service_alerts
+    rules:
+      # ── HIGH ERROR RATE (RED) ──────────────────────────────────────────────
+      - alert: HighErrorRate
+        expr: |
+          (
+            sum by (job) (rate(http_server_request_duration_seconds_count{http_response_status_code=~"5.."}[5m]))
+            /
+            sum by (job) (rate(http_server_request_duration_seconds_count[5m]))
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.job }} error rate above 5%"
+          description: "Service {{ $labels.job }} has a 5xx error rate of {{ $value | humanizePercentage }} over the last 5 minutes."
+          runbook_url: "https://wiki.internal/runbooks/high-error-rate"
+
+      # ── HIGH LATENCY P99 (RED) ─────────────────────────────────────────────
+      - alert: HighLatencyP99
+        expr: |
+          histogram_quantile(0.99,
+            sum by (job, le) (rate(http_server_request_duration_seconds_bucket[5m]))
+          ) > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.job }} p99 latency above 2s"
+          description: "Service {{ $labels.job }} p99 latency is {{ $value | humanizeDuration }}."
+          runbook_url: "https://wiki.internal/runbooks/high-latency"
+
+      # ── HIGH LATENCY P95 (RED) — Critical ──────────────────────────────────
+      - alert: HighLatencyP95Critical
+        expr: |
+          histogram_quantile(0.95,
+            sum by (job, le) (rate(http_server_request_duration_seconds_bucket[5m]))
+          ) > 5
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.job }} p95 latency above 5s"
+          description: "Service {{ $labels.job }} p95 latency is {{ $value | humanizeDuration }}. Immediate investigation required."
+
+      # ── LOW THROUGHPUT (Canary / Liveness) ─────────────────────────────────
+      - alert: LowThroughput
+        expr: |
+          sum by (job) (rate(http_server_request_duration_seconds_count[5m])) < 0.01
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.job }} receiving near-zero traffic"
+          description: "Service {{ $labels.job }} is processing fewer than 0.01 rps for 15 minutes. May indicate upstream issue or deployment failure."
+
+  # ─────────────────────────── Saga / Booking Alerts ─────────────────────────
+  - name: saga_alerts
+    rules:
+      # ── HIGH BOOKING FAILURE RATE ──────────────────────────────────────────
+      - alert: HighBookingFailureRate
+        expr: |
+          (
+            rate(booking_failed_total[5m])
+            /
+            clamp_min(rate(booking_created_total[5m]), 0.001)
+          ) > 0.10
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Booking failure rate above 10%"
+          description: "{{ $value | humanizePercentage }} of bookings are failing. Check saga step failures and downstream services."
+          runbook_url: "https://wiki.internal/runbooks/booking-failures"
+
+      # ── SAGA DURATION P95 ──────────────────────────────────────────────────
+      - alert: SagaDurationHigh
+        expr: |
+          histogram_quantile(0.95,
+            sum by (le) (rate(booking_creation_duration_seconds_bucket[5m]))
+          ) > 30
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Saga p95 duration above 30s"
+          description: "The booking saga p95 completion time is {{ $value | humanizeDuration }}. Check individual service latencies."
+
+      # ── IN-FLIGHT BOOKINGS SPIKE ───────────────────────────────────────────
+      - alert: BookingsInFlightHigh
+        expr: booking_inflight > 100
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "More than 100 bookings in-flight"
+          description: "{{ $value }} bookings are currently in-flight. May indicate saga is stuck or downstream services are slow."
+
+      # ── ZERO BOOKINGS (business-hours canary) ──────────────────────────────
+      - alert: ZeroBookings
+        expr: |
+          rate(booking_created_total[15m]) == 0
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "No bookings created for 30 minutes"
+          description: "Zero bookings have been created. This may be expected outside business hours, but should be investigated during peak."
+
+  # ─────────────────────────── Sub-Service Alerts ────────────────────────────
+  - name: sub_service_alerts
+    rules:
+      # ── FLIGHT RESERVATION FAILURE RATE ────────────────────────────────────
+      - alert: FlightReservationFailureRate
+        expr: |
+          (
+            rate(flight_reservations_failed_total[5m])
+            /
+            clamp_min(rate(flight_reservations_created_total[5m]), 0.001)
+          ) > 0.15
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Flight reservation failure rate above 15%"
+          description: "{{ $value | humanizePercentage }} of flight reservations failing."
+
+      # ── HOTEL RESERVATION FAILURE RATE ─────────────────────────────────────
+      - alert: HotelReservationFailureRate
+        expr: |
+          (
+            rate(hotel_reservations_failed_total[5m])
+            /
+            clamp_min(rate(hotel_reservations_created_total[5m]), 0.001)
+          ) > 0.15
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Hotel reservation failure rate above 15%"
+          description: "{{ $value | humanizePercentage }} of hotel reservations failing."
+
+      # ── CAR RENTAL FAILURE RATE ────────────────────────────────────────────
+      - alert: CarRentalFailureRate
+        expr: |
+          (
+            rate(car_rentals_failed_total[5m])
+            /
+            clamp_min(rate(car_rentals_created_total[5m]), 0.001)
+          ) > 0.15
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Car rental failure rate above 15%"
+          description: "{{ $value | humanizePercentage }} of car rentals failing."
+
+      # ── SUB-SERVICE PROCESSING DURATION ────────────────────────────────────
+      - alert: FlightProcessingDurationHigh
+        expr: |
+          histogram_quantile(0.95,
+            sum by (le) (rate(flight_reservation_processing_duration_seconds_bucket[5m]))
+          ) > 10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Flight processing p95 above 10s"
+
+      - alert: HotelProcessingDurationHigh
+        expr: |
+          histogram_quantile(0.95,
+            sum by (le) (rate(hotel_reservation_processing_duration_seconds_bucket[5m]))
+          ) > 10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Hotel processing p95 above 10s"
+
+      - alert: CarProcessingDurationHigh
+        expr: |
+          histogram_quantile(0.95,
+            sum by (le) (rate(car_rental_processing_duration_seconds_bucket[5m]))
+          ) > 10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Car rental processing p95 above 10s"
+
+  # ─────────────────────────── Messaging / Outbox Alerts ─────────────────────
+  - name: messaging_alerts
+    rules:
+      # ── OUTBOX PUBLISH FAILURES ────────────────────────────────────────────
+      - alert: OutboxPublishFailures
+        expr: rate(messaging_outbox_publish_failed_total[5m]) > 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.job }} outbox publish failures"
+          description: "Outbox publish failures detected at {{ $value }}/s. Messages may be stuck."
+          runbook_url: "https://wiki.internal/runbooks/outbox-failures"
+
+      # ── OUTBOX BACKLOG (enqueued - published growing) ──────────────────────
+      - alert: OutboxBacklog
+        expr: |
+          (
+            sum by (job) (messaging_outbox_enqueued_total)
+            -
+            sum by (job) (messaging_outbox_published_total)
+          ) > 500
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.job }} outbox backlog exceeds 500"
+          description: "Gap between enqueued and published messages is {{ $value }}. Publishing may be stuck."
+
+      # ── HIGH OUTBOX PUBLISH LATENCY ────────────────────────────────────────
+      - alert: OutboxPublishLatencyHigh
+        expr: |
+          rate(messaging_outbox_publish_duration_ms_sum[5m])
+          /
+          clamp_min(rate(messaging_outbox_publish_duration_ms_count[5m]), 0.001) > 5000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.job }} outbox publish avg latency above 5s"
+
+  # ─────────────────────────── Infrastructure Alerts ─────────────────────────
+  - name: infrastructure_alerts
+    rules:
+      # ── HIGH CPU USAGE (USE) ───────────────────────────────────────────────
+      - alert: PodHighCpuUsage
+        expr: |
+          100 * sum by (pod) (rate(container_cpu_usage_seconds_total{container!="", container!="POD"}[5m]))
+          /
+          sum by (pod) (kube_pod_container_resource_limits{resource="cpu"})
+          > 85
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Pod {{ $labels.pod }} CPU usage above 85%"
+
+      # ── HIGH MEMORY USAGE (USE) ────────────────────────────────────────────
+      - alert: PodHighMemoryUsage
+        expr: |
+          100 * sum by (pod) (container_memory_working_set_bytes{container!="", container!="POD"})
+          /
+          sum by (pod) (kube_pod_container_resource_limits{resource="memory"})
+          > 85
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Pod {{ $labels.pod }} memory usage above 85%"
+
+      # ── CONTAINER RESTARTS ─────────────────────────────────────────────────
+      - alert: ContainerCrashLooping
+        expr: |
+          increase(kube_pod_container_status_restarts_total[1h]) > 3
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Container {{ $labels.container }} in pod {{ $labels.pod }} crash-looping"
+          description: "{{ $value }} restarts in the last hour."
+
+      # ── .NET GC PRESSURE ───────────────────────────────────────────────────
+      - alert: DotNetGCPressure
+        expr: |
+          rate(process_runtime_dotnet_gc_collections_count_total{generation="gen2"}[5m]) > 1
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.job }} Gen2 GC collections exceeding 1/s"
+          description: "High Gen2 GC rate indicates memory pressure. Current rate: {{ $value }}/s."

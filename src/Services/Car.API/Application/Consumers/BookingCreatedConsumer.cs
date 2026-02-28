@@ -1,5 +1,7 @@
 namespace Car.API.Application.Consumers;
 
+using System.Diagnostics;
+using Car.API.Application.Observability;
 using Car.API.Domain.Entities;
 using Car.API.Infrastructure.Persistence;
 using MassTransit;
@@ -10,11 +12,17 @@ public class BookingCreatedConsumer : IConsumer<BookingCreatedIntegrationEvent>
 {
     private readonly CarDbContext _dbContext;
     private readonly IOutboxPublisher _outboxPublisher;
+    private readonly CarMetrics _carMetrics;
 
-    public BookingCreatedConsumer(CarDbContext dbContext, IOutboxPublisher outboxPublisher)
+    public BookingCreatedConsumer(
+        CarDbContext dbContext,
+        IOutboxPublisher outboxPublisher,
+        CarMetrics carMetrics
+    )
     {
         _dbContext = dbContext;
         _outboxPublisher = outboxPublisher;
+        _carMetrics = carMetrics;
     }
 
     public async Task Consume(ConsumeContext<BookingCreatedIntegrationEvent> context)
@@ -24,6 +32,8 @@ public class BookingCreatedConsumer : IConsumer<BookingCreatedIntegrationEvent>
         {
             return;
         }
+
+        var stopwatch = Stopwatch.StartNew();
 
         try
         {
@@ -55,9 +65,18 @@ public class BookingCreatedConsumer : IConsumer<BookingCreatedIntegrationEvent>
             );
 
             await _dbContext.SaveChangesAsync(context.CancellationToken);
+
+            stopwatch.Stop();
+            _carMetrics.RecordRentalCreated();
+            _carMetrics.RecordRentalConfirmed(carRental.TotalPrice);
+            _carMetrics.RecordProcessingDuration(stopwatch.Elapsed.TotalSeconds, "confirmed");
         }
         catch (Exception ex)
         {
+            stopwatch.Stop();
+            _carMetrics.RecordRentalFailed(ex.GetType().Name);
+            _carMetrics.RecordProcessingDuration(stopwatch.Elapsed.TotalSeconds, "failed");
+
             // Clear tracked entities from the failed operation
             _dbContext.ChangeTracker.Clear();
 
