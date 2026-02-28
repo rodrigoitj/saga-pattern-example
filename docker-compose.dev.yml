@@ -121,6 +121,8 @@ services:
       - ./observability/tempo.yaml:/etc/tempo.yaml:ro
     ports:
       - "3200:3200"
+    depends_on:
+      - prometheus
     networks:
       - saga-network
 

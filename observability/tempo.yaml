@@ -9,7 +9,7 @@ distributor:
         http:
 
 ingester:
-  max_block_duration: 5m
+  max_block_duration: 30s
 
 compactor:
   compaction:

@@ -1292,7 +1292,7 @@
         "current": {
           "selected": false,
           "text": "Prometheus",
-          "value": "PBFA97CFB590B2093"
+          "value": "prometheus"
         },
         "hide": 0,
         "includeAll": false,

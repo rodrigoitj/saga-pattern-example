@@ -3,6 +3,7 @@ using System.Reflection;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Npgsql;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
@@ -74,9 +75,10 @@ public static class ObservabilityExtensions
                     .AddHttpClientInstrumentation()
                     .AddEntityFrameworkCoreInstrumentation(options =>
                     {
-                        options.SetDbStatementForStoredProcedure = false;
-                        options.SetDbStatementForText = false;
-                    });
+                        options.SetDbStatementForStoredProcedure = true;
+                        options.SetDbStatementForText = true;
+                    })
+                    .AddNpgsql();
 
                 ConfigureTracingExporters(tracing, observability);
             })
@@ -90,6 +92,7 @@ public static class ObservabilityExtensions
                     .AddMeter(TelemetryConstants.FlightMeterName)
                     .AddMeter(TelemetryConstants.HotelMeterName)
                     .AddMeter(TelemetryConstants.CarMeterName)
+                    .AddMeter("Npgsql")
                     .AddView(
                         instrumentName: "http.server.request.duration",
                         new ExplicitBucketHistogramConfiguration
@@ -148,13 +151,19 @@ public static class ObservabilityExtensions
         {
             tracing.AddOtlpExporter(options =>
             {
-                options.Endpoint = new Uri(observability.Otlp.Endpoint);
-                options.Protocol = observability.Otlp.Protocol.Equals(
+                var isHttpProtobuf = observability.Otlp.Protocol.Equals(
                     "http/protobuf",
                     StringComparison.OrdinalIgnoreCase
-                )
+                );
+
+                options.Protocol = isHttpProtobuf
                     ? OpenTelemetry.Exporter.OtlpExportProtocol.HttpProtobuf
                     : OpenTelemetry.Exporter.OtlpExportProtocol.Grpc;
+                options.Endpoint = ResolveOtlpEndpoint(
+                    observability.Otlp.Endpoint,
+                    isHttpProtobuf,
+                    "/v1/traces"
+                );
 
                 if (!string.IsNullOrWhiteSpace(observability.Otlp.Headers))
                 {
@@ -183,13 +192,19 @@ public static class ObservabilityExtensions
         {
             metrics.AddOtlpExporter(options =>
             {
-                options.Endpoint = new Uri(observability.Otlp.Endpoint);
-                options.Protocol = observability.Otlp.Protocol.Equals(
+                var isHttpProtobuf = observability.Otlp.Protocol.Equals(
                     "http/protobuf",
                     StringComparison.OrdinalIgnoreCase
-                )
+                );
+
+                options.Protocol = isHttpProtobuf
                     ? OpenTelemetry.Exporter.OtlpExportProtocol.HttpProtobuf
                     : OpenTelemetry.Exporter.OtlpExportProtocol.Grpc;
+                options.Endpoint = ResolveOtlpEndpoint(
+                    observability.Otlp.Endpoint,
+                    isHttpProtobuf,
+                    "/v1/metrics"
+                );
 
                 if (!string.IsNullOrWhiteSpace(observability.Otlp.Headers))
                 {
@@ -228,13 +243,20 @@ public static class ObservabilityExtensions
                 {
                     loggerConfiguration.WriteTo.OpenTelemetry(options =>
                     {
-                        options.Endpoint = observability.Otlp.Endpoint;
-                        options.Protocol = observability.Otlp.Protocol.Equals(
+                        var isHttpProtobuf = observability.Otlp.Protocol.Equals(
                             "http/protobuf",
                             StringComparison.OrdinalIgnoreCase
-                        )
+                        );
+
+                        options.Protocol = isHttpProtobuf
                             ? Serilog.Sinks.OpenTelemetry.OtlpProtocol.HttpProtobuf
                             : Serilog.Sinks.OpenTelemetry.OtlpProtocol.Grpc;
+                        options.Endpoint = ResolveOtlpEndpoint(
+                                observability.Otlp.Endpoint,
+                                isHttpProtobuf,
+                                "/v1/logs"
+                            )
+                            .ToString();
                         options.ResourceAttributes = new Dictionary<string, object>
                         {
                             ["service.name"] = serviceName,
@@ -261,5 +283,26 @@ public static class ObservabilityExtensions
     private static string? ResolveServiceVersion()
     {
         return Assembly.GetEntryAssembly()?.GetName().Version?.ToString();
+    }
+
+    private static Uri ResolveOtlpEndpoint(
+        string configuredEndpoint,
+        bool isHttpProtobuf,
+        string signalPath
+    )
+    {
+        var endpoint = new Uri(configuredEndpoint);
+
+        if (!isHttpProtobuf)
+        {
+            return endpoint;
+        }
+
+        if (string.IsNullOrEmpty(endpoint.AbsolutePath) || endpoint.AbsolutePath == "/")
+        {
+            return new Uri($"{endpoint.Scheme}://{endpoint.Authority}{signalPath}");
+        }
+
+        return endpoint;
     }
 }
