@@ -1,0 +1,149 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Reference the base kustomization
+resources:
+  - ../../base
+
+namespace: saga-pattern
+
+# Patch images to use local Docker images (use 'local' tag to avoid implicit Always pull with 'latest')
+images:
+  - name: sagapatternacr.azurecr.io/booking-api
+    newName: booking-api
+    newTag: local
+  - name: sagapatternacr.azurecr.io/flight-api
+    newName: flight-api
+    newTag: local
+  - name: sagapatternacr.azurecr.io/hotel-api
+    newName: hotel-api
+    newTag: local
+  - name: sagapatternacr.azurecr.io/car-api
+    newName: car-api
+    newTag: local
+
+# Use local secrets instead of Azure Key Vault
+secretGenerator:
+  - name: postgres-credentials
+    literals:
+      - username=postgres
+      - password=postgres
+  - name: rabbitmq-credentials
+    literals:
+      - username=guest
+      - password=guest
+
+# Override image pull policy for local development
+patches:
+  # Remove service account (not needed for local development)
+  - patch: |-
+      - op: remove
+        path: /spec/template/spec/serviceAccountName
+    target:
+      kind: Deployment
+      name: booking-api
+  - patch: |-
+      - op: remove
+        path: /spec/template/spec/serviceAccountName
+    target:
+      kind: Deployment
+      name: flight-api
+  - patch: |-
+      - op: remove
+        path: /spec/template/spec/serviceAccountName
+    target:
+      kind: Deployment
+      name: hotel-api
+  - patch: |-
+      - op: remove
+        path: /spec/template/spec/serviceAccountName
+    target:
+      kind: Deployment
+      name: car-api
+  # Set imagePullPolicy to IfNotPresent for local images
+  # (Never doesn't work with Docker Desktop containerd image store)
+  - patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/imagePullPolicy
+        value: IfNotPresent
+    target:
+      kind: Deployment
+      name: booking-api
+  - patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/imagePullPolicy
+        value: IfNotPresent
+    target:
+      kind: Deployment
+      name: flight-api
+  - patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/imagePullPolicy
+        value: IfNotPresent
+    target:
+      kind: Deployment
+      name: hotel-api
+  - patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/imagePullPolicy
+        value: IfNotPresent
+    target:
+      kind: Deployment
+      name: car-api
+  # Override StorageClass from managed-csi (Azure) to standard (local)
+  - patch: |-
+      - op: replace
+        path: /spec/storageClassName
+        value: standard
+    target:
+      kind: PersistentVolumeClaim
+      name: postgres-pvc
+  - patch: |-
+      - op: replace
+        path: /spec/storageClassName
+        value: standard
+    target:
+      kind: PersistentVolumeClaim
+      name: rabbitmq-pvc
+  - patch: |-
+      - op: replace
+        path: /spec/storageClassName
+        value: standard
+    target:
+      kind: PersistentVolumeClaim
+      name: grafana-pvc
+  - patch: |-
+      - op: replace
+        path: /spec/storageClassName
+        value: standard
+    target:
+      kind: PersistentVolumeClaim
+      name: prometheus-pvc
+  - patch: |-
+      - op: replace
+        path: /spec/storageClassName
+        value: standard
+    target:
+      kind: PersistentVolumeClaim
+      name: tempo-pvc
+  # Change LoadBalancer to ClusterIP for local (Docker Desktop has no LB provider)
+  - patch: |-
+      - op: replace
+        path: /spec/type
+        value: ClusterIP
+    target:
+      kind: Service
+      name: booking-api
+  - patch: |-
+      - op: replace
+        path: /spec/type
+        value: ClusterIP
+    target:
+      kind: Service
+      name: grafana
+
+labels:
+  - includeSelectors: false
+    pairs:
+      environment: local
+      deployment-type: development

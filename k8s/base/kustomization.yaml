@@ -1,0 +1,19 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: saga-pattern
+
+resources:
+  - namespace.yaml
+  - postgres-configmap.yaml
+  - postgres.yaml
+  - rabbitmq.yaml
+  - otel-collector.yaml
+  - tempo.yaml
+  - prometheus.yaml
+  - grafana.yaml
+  - booking-api.yaml
+  - flight-api.yaml
+  - hotel-api.yaml
+  - car-api.yaml
+  - ingress.yaml

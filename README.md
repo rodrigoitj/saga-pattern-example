@@ -71,6 +71,7 @@ GET http://localhost:5001/api/bookings/{bookingId}
 [x] Add inbox, outbox pattern for reliable message processing
 [x] Add observability with OpenTelemetry metrics and logs
 [x] Add Grafana dashboards for monitoring service health and RabbitMQ queues
+[x] Add kubernetes manifests for deploying to an Azure Kubernetes Service (AKS) cluster
 [] Add more comprehensive logging with Serilog
 [] Add Polly for resilience in HTTP calls and RabbitMQ interactions
 [] Write integration tests for the entire saga flow
@@ -87,6 +88,8 @@ GET http://localhost:5001/api/bookings/{bookingId}
 - [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)
 - [DOCKER_DEV_GUIDE.md](DOCKER_DEV_GUIDE.md)
 - [OBSERVABILITY.md](OBSERVABILITY.md)
+- [k8s/README.md](k8s/README.md) - Kubernetes deployment guide for AKS
+- [k8s/DEPLOYMENT_GUIDE.md](k8s/DEPLOYMENT_GUIDE.md) - Comprehensive AKS deployment instructions
 
 ## License
 

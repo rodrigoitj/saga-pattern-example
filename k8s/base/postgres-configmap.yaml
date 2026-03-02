@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-init-config
+  namespace: saga-pattern
+data:
+  init-databases.sql: |
+    CREATE DATABASE "BookingDb";
+    CREATE DATABASE "FlightDb";
+    CREATE DATABASE "HotelDb";
+    CREATE DATABASE "CarDb";

@@ -1,0 +1,75 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: saga-ingress
+  namespace: saga-pattern
+  annotations:
+    kubernetes.io/ingress.class: azure/application-gateway
+spec:
+  # Option 1: Without custom domains (use Ingress IP with path-based routing)
+  # Access: http://<INGRESS-IP>/api for booking-api, http://<INGRESS-IP>/grafana for Grafana
+  rules:
+  - http:
+      paths:
+      - path: /api
+        pathType: Prefix
+        backend:
+          service:
+            name: booking-api
+            port:
+              number: 80
+      - path: /grafana
+        pathType: Prefix
+        backend:
+          service:
+            name: grafana
+            port:
+              number: 80
+  
+  # Option 2: With custom domains (uncomment and update with your registered domains)
+  # rules:
+  # - host: saga-booking.example.com
+  #   http:
+  #     paths:
+  #     - path: /
+  #       pathType: Prefix
+  #       backend:
+  #         service:
+  #           name: booking-api
+  #           port:
+  #             number: 80
+  # - host: grafana.example.com
+  #   http:
+  #     paths:
+  #     - path: /
+  #       pathType: Prefix
+  #       backend:
+  #         service:
+  #           name: grafana
+  #           port:
+  #             number: 80
+  
+  # Option 3: With nip.io wildcard DNS (replace <INGRESS-IP> with actual IP)
+  # Get Ingress IP: kubectl get ingress saga-ingress -n saga-pattern
+  # Then use: http://booking.<INGRESS-IP>.nip.io or http://grafana.<INGRESS-IP>.nip.io
+  # rules:
+  # - host: "booking.20.10.5.10.nip.io"  # Replace with your Ingress IP
+  #   http:
+  #     paths:
+  #     - path: /
+  #       pathType: Prefix
+  #       backend:
+  #         service:
+  #           name: booking-api
+  #           port:
+  #             number: 80
+  # - host: "grafana.20.10.5.10.nip.io"  # Replace with your Ingress IP
+  #   http:
+  #     paths:
+  #     - path: /
+  #       pathType: Prefix
+  #       backend:
+  #         service:
+  #           name: grafana
+  #           port:
+  #             number: 80

@@ -139,6 +139,22 @@ services:
     networks:
       - saga-network
 
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    container_name: saga-prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--web.enable-remote-write-receiver"
+      - "--enable-feature=exemplar-storage"
+    volumes:
+      - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./observability/prometheus-recording-rules.yml:/etc/prometheus/prometheus-recording-rules.yml:ro
+      - ./observability/prometheus-alerts.yml:/etc/prometheus/prometheus-alerts.yml:ro
+    ports:
+      - "9090:9090"
+    networks:
+      - saga-network
+
   tempo:
     image: grafana/tempo:2.6.1
     container_name: saga-tempo
@@ -149,9 +165,31 @@ services:
       - "3200:3200"
     networks:
       - saga-network
+    depends_on:
+      - prometheus
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    container_name: saga-grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./observability/grafana-datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml:ro
+      - ./observability/grafana-dashboards.yaml:/etc/grafana/provisioning/dashboards/dashboards.yaml:ro
+      - ./observability/dashboards:/etc/grafana/provisioning/dashboards/json:ro
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+      - tempo
+    networks:
+      - saga-network
 
 volumes:
   postgres_data:
+  grafana_data:
 
 
 networks:

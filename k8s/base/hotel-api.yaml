@@ -1,0 +1,91 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: hotel-api
+  namespace: saga-pattern
+  labels:
+    app: hotel-api
+spec:
+  type: ClusterIP
+  selector:
+    app: hotel-api
+  ports:
+    - port: 8080
+      targetPort: 8080
+      protocol: TCP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hotel-api
+  namespace: saga-pattern
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hotel-api
+  template:
+    metadata:
+      labels:
+        app: hotel-api
+        azure.workload.identity/use: "true"
+    spec:
+      serviceAccountName: saga-pattern-sa
+      containers:
+      - name: hotel-api
+        image: sagapatternacr.azurecr.io/hotel-api:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8080
+        env:
+        - name: ASPNETCORE_ENVIRONMENT
+          value: Production
+        - name: ASPNETCORE_URLS
+          value: http://+:8080
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgres-credentials
+              key: password
+        - name: ConnectionStrings__DefaultConnection
+          value: "Host=postgres;Database=HotelDb;Username=postgres;Password=$(POSTGRES_PASSWORD);Port=5432;Pooling=true;"
+        - name: RabbitMQ__Host
+          value: rabbitmq
+        - name: RabbitMQ__Port
+          value: "5672"
+        - name: RabbitMQ__VirtualHost
+          value: /
+        - name: RabbitMQ__Username
+          valueFrom:
+            secretKeyRef:
+              name: rabbitmq-credentials
+              key: username
+        - name: RabbitMQ__Password
+          valueFrom:
+            secretKeyRef:
+              name: rabbitmq-credentials
+              key: password
+        - name: Observability__Otlp__Endpoint
+          value: http://otel-collector:4318
+        - name: Observability__ServiceNamespace
+          value: SagaPattern
+        - name: Observability__ServiceVersion
+          value: "1.0.0"
+        livenessProbe:
+          tcpSocket:
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          tcpSocket:
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 5
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+      terminationGracePeriodSeconds: 30

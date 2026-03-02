@@ -1,0 +1,374 @@
+# Network Policies for saga-pattern namespace
+# Implements zero-trust network security with explicit allow rules
+
+---
+# Default deny all ingress traffic
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: saga-pattern
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+
+---
+# Allow ingress to booking-api from internet (LoadBalancer)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-booking-api-ingress
+  namespace: saga-pattern
+spec:
+  podSelector:
+    matchLabels:
+      app: booking-api
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: ingress-nginx
+    - podSelector: {}  # Allow from any pod in the namespace
+    ports:
+    - protocol: TCP
+      port: 8080
+
+---
+# Allow bookingAPI to communicate with RabbitMQ
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-booking-to-rabbitmq
+  namespace: saga-pattern
+spec:
+  podSelector:
+    matchLabels:
+      app: booking-api
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          app: rabbitmq
+    ports:
+    - protocol: TCP
+      port: 5672
+
+---
+# Allow booking-api to communicate with PostgreSQL
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-booking-to-postgres
+  namespace: saga-pattern
+spec:
+  podSelector:
+    matchLabels:
+      app: booking-api
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          app: postgres
+    ports:
+    - protocol: TCP
+      port: 5432
+
+---
+# Allow booking-api to communicate with OTEL Collector
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-booking-to-otel
+  namespace: saga-pattern
+spec:
+  podSelector:
+    matchLabels:
+      app: booking-api
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          app: otel-collector
+    ports:
+    - protocol: TCP
+      port: 4318
+
+---
+# Allow flight-api to communicate with RabbitMQ and PostgreSQL
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-flight-communication
+  namespace: saga-pattern
+spec:
+  podSelector:
+    matchLabels:
+      app: flight-api
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          app: rabbitmq
+    ports:
+    - protocol: TCP
+      port: 5672
+  - to:
+    - podSelector:
+        matchLabels:
+          app: postgres
+    ports:
+    - protocol: TCP
+      port: 5432
+  - to:
+    - podSelector:
+        matchLabels:
+          app: otel-collector
+    ports:
+    - protocol: TCP
+      port: 4318
+
+---
+# Allow hotel-api to communicate with RabbitMQ and PostgreSQL
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-hotel-communication
+  namespace: saga-pattern
+spec:
+  podSelector:
+    matchLabels:
+      app: hotel-api
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          app: rabbitmq
+    ports:
+    - protocol: TCP
+      port: 5672
+  - to:
+    - podSelector:
+        matchLabels:
+          app: postgres
+    ports:
+    - protocol: TCP
+      port: 5432
+  - to:
+    - podSelector:
+        matchLabels:
+          app: otel-collector
+    ports:
+    - protocol: TCP
+      port: 4318
+
+---
+# Allow car-api to communicate with RabbitMQ and PostgreSQL
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-car-communication
+  namespace: saga-pattern
+spec:
+  podSelector:
+    matchLabels:
+      app: car-api
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          app: rabbitmq
+    ports:
+    - protocol: TCP
+      port: 5672
+  - to:
+    - podSelector:
+        matchLabels:
+          app: postgres
+    ports:
+    - protocol: TCP
+      port: 5432
+  - to:
+    - podSelector:
+        matchLabels:
+          app: otel-collector
+    ports:
+    - protocol: TCP
+      port: 4318
+
+---
+# Allow RabbitMQ ingress from services
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-rabbitmq-ingress
+  namespace: saga-pattern
+spec:
+  podSelector:
+    matchLabels:
+      app: rabbitmq
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: booking-api
+    - podSelector:
+        matchLabels:
+          app: flight-api
+    - podSelector:
+        matchLabels:
+          app: hotel-api
+    - podSelector:
+        matchLabels:
+          app: car-api
+    ports:
+    - protocol: TCP
+      port: 5672
+
+---
+# Allow PostgreSQL ingress from services
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-postgres-ingress
+  namespace: saga-pattern
+spec:
+  podSelector:
+    matchLabels:
+      app: postgres
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: booking-api
+    - podSelector:
+        matchLabels:
+          app: flight-api
+    - podSelector:
+        matchLabels:
+          app: hotel-api
+    - podSelector:
+        matchLabels:
+          app: car-api
+    ports:
+    - protocol: TCP
+      port: 5432
+
+---
+# Allow OTEL Collector ingress from services
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-otel-ingress
+  namespace: saga-pattern
+spec:
+  podSelector:
+    matchLabels:
+      app: otel-collector
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: booking-api
+    - podSelector:
+        matchLabels:
+          app: flight-api
+    - podSelector:
+        matchLabels:
+          app: hotel-api
+    - podSelector:
+        matchLabels:
+          app: car-api
+    ports:
+    - protocol: TCP
+      port: 4318
+
+---
+# Allow Prometheus to scrape metrics from services
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-prometheus-scrape
+  namespace: saga-pattern
+spec:
+  podSelector:
+    matchLabels:
+      scrape: "true"
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: prometheus
+    ports:
+    - protocol: TCP
+      port: 8080
+
+---
+# Allow Grafana ingress (LoadBalancer)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-grafana-ingress
+  namespace: saga-pattern
+spec:
+  podSelector:
+    matchLabels:
+      app: grafana
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - namespaceSelector: {}  # Allow from any namespace (for LoadBalancer)
+    ports:
+    - protocol: TCP
+      port: 3000
+
+---
+# Allow DNS resolution (egress to kube-system)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-dns-egress
+  namespace: saga-pattern
+spec:
+  podSelector: {}
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: kube-system
+    ports:
+    - protocol: UDP
+      port: 53
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: kube-system
+    ports:
+    - protocol: TCP
+      port: 53

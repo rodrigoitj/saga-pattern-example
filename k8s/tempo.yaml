@@ -1,0 +1,106 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tempo-config
+  namespace: saga-pattern
+data:
+  tempo.yaml: |
+    server:
+      http_listen_port: 3200
+    distributor:
+      rate_limit_bytes: 10000000
+    ingester:
+      lifecycler:
+        ring:
+          replication_factor: 1
+    retention:
+      traces:
+        default_retention: 24h
+    storage:
+      trace:
+        backend: local
+        local:
+          path: /var/tempo/traces
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: tempo-pvc
+  namespace: saga-pattern
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: managed-csi
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tempo
+  namespace: saga-pattern
+  labels:
+    app: tempo
+spec:
+  type: ClusterIP
+  selector:
+    app: tempo
+  ports:
+    - port: 3200
+      targetPort: 3200
+      protocol: TCP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tempo
+  namespace: saga-pattern
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tempo
+  template:
+    metadata:
+      labels:
+        app: tempo
+    spec:
+      containers:
+      - name: tempo
+        image: grafana/tempo:2.6.1
+        ports:
+        - containerPort: 3200
+        args:
+          - -config.file=/etc/tempo.yaml
+        volumeMounts:
+        - name: tempo-config
+          mountPath: /etc/
+        - name: tempo-storage
+          mountPath: /var/tempo
+        livenessProbe:
+          httpGet:
+            path: /api/status/buildinfo
+            port: 3200
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /api/status/buildinfo
+            port: 3200
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+      volumes:
+      - name: tempo-config
+        configMap:
+          name: tempo-config
+      - name: tempo-storage
+        persistentVolumeClaim:
+          claimName: tempo-pvc
