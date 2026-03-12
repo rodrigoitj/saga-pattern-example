@@ -22,8 +22,19 @@ exporters:
     endpoint: tempo:4317
     tls:
       insecure: true
+  elasticsearch:
+    endpoints: [ "http://elasticsearch:9200" ]
+    auth:
+      authenticator: basicauth/none
+    logs_index: "logs-%{+yyyy.MM.dd}"
+
+extensions:
+  basicauth/none:
+    client_auth:
+      scheme: ""
 
 service:
+  extensions: [basicauth/none]
   pipelines:
     traces:
       receivers: [otlp]
@@ -36,4 +47,4 @@ service:
     logs:
       receivers: [otlp]
       processors: [memory_limiter, batch]
-      exporters: [debug]
+      exporters: [debug, elasticsearch]

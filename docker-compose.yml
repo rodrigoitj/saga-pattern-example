@@ -20,36 +20,40 @@ services:
       retries: 5
 
   booking-api:
-    image: booking-api:latest
-    container_name: booking-api
+    image: booking-api:dev
+    container_name: booking-api-dev
     build:
       context: .
-      dockerfile: ./src/Services/Booking.API/Dockerfile
+      dockerfile: ./src/Services/Booking.API/Dockerfile.dev
     environment:
-      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:8080
+      - ENABLE_WATCH=false
       - ConnectionStrings__DefaultConnection=Host=postgres;Database=BookingDb;Username=postgres;Password=postgres;Port=5432
     ports:
       - "5001:8080"
+      - "5011:5011"
     depends_on:
       rabbitmq:
         condition: service_healthy
       postgres:
         condition: service_healthy
-      otel-collector:
-        condition: service_started
+    volumes:
+      - ./src/Services/Booking.API:/src/Services/Booking.API
+      - ./src/Common:/src/Common
     networks:
       - saga-network
 
   flight-api:
-    image: flight-api:latest
-    container_name: flight-api
+    image: flight-api:dev
+    container_name: flight-api-dev
     build:
       context: .
-      dockerfile: ./src/Services/Flight.API/Dockerfile
+      dockerfile: ./src/Services/Flight.API/Dockerfile.dev
     environment:
-      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:8080
+      - ENABLE_WATCH=false
       - ConnectionStrings__DefaultConnection=Host=postgres;Database=FlightDb;Username=postgres;Password=postgres;Port=5432
     depends_on:
       rabbitmq:
@@ -58,20 +62,22 @@ services:
         condition: service_healthy
       booking-api:
         condition: service_started
-      otel-collector:
-        condition: service_started
+    volumes:
+      - ./src/Services/Flight.API:/src/Services/Flight.API
+      - ./src/Common:/src/Common
     networks:
       - saga-network
 
   hotel-api:
-    image: hotel-api:latest
-    container_name: hotel-api
+    image: hotel-api:dev
+    container_name: hotel-api-dev
     build:
       context: .
-      dockerfile: ./src/Services/Hotel.API/Dockerfile
+      dockerfile: ./src/Services/Hotel.API/Dockerfile.dev
     environment:
+      - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:8080
-      - ASPNETCORE_ENVIRONMENT=Production
+      - ENABLE_WATCH=false
       - ConnectionStrings__DefaultConnection=Host=postgres;Database=HotelDb;Username=postgres;Password=postgres;Port=5432
     depends_on:
       rabbitmq:
@@ -80,20 +86,22 @@ services:
         condition: service_healthy
       flight-api:
         condition: service_started
-      otel-collector:
-        condition: service_started
+    volumes:
+      - ./src/Services/Hotel.API:/src/Services/Hotel.API
+      - ./src/Common:/src/Common
     networks:
       - saga-network
 
   car-api:
-    image: car-api:latest
-    container_name: car-api
+    image: car-api:dev
+    container_name: car-api-dev
     build:
       context: .
-      dockerfile: ./src/Services/Car.API/Dockerfile
+      dockerfile: ./src/Services/Car.API/Dockerfile.dev
     environment:
+      - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:8080
-      - ASPNETCORE_ENVIRONMENT=Production
+      - ENABLE_WATCH=false
       - ConnectionStrings__DefaultConnection=Host=postgres;Database=CarDb;Username=postgres;Password=postgres;Port=5432
     depends_on:
       rabbitmq:
@@ -102,8 +110,9 @@ services:
         condition: service_healthy
       hotel-api:
         condition: service_started
-      otel-collector:
-        condition: service_started
+    volumes:
+      - ./src/Services/Car.API:/src/Services/Car.API
+      - ./src/Common:/src/Common
     networks:
       - saga-network
 
@@ -134,8 +143,7 @@ services:
       - "4317:4317"
       - "4318:4318"
     depends_on:
-      tempo:
-        condition: service_started
+      - tempo
     networks:
       - saga-network
 
@@ -163,10 +171,10 @@ services:
       - ./observability/tempo.yaml:/etc/tempo.yaml:ro
     ports:
       - "3200:3200"
-    networks:
-      - saga-network
     depends_on:
       - prometheus
+    networks:
+      - saga-network
 
   grafana:
     image: grafana/grafana:11.2.0
@@ -187,9 +195,62 @@ services:
     networks:
       - saga-network
 
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.13.0
+    container_name: saga-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    ports:
+      - "9200:9200"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    networks:
+      - saga-network
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -q '\"status\"' || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.13.0
+    container_name: saga-kibana
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    ports:
+      - "5601:5601"
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      - saga-network
+    restart: unless-stopped
+
+  dynatrace-oneagent:
+    image: dynatrace/oneagent:latest
+    container_name: saga-dynatrace-oneagent
+    privileged: true
+    environment:
+      - DT_TENANT=${DT_TENANT}
+      - DT_API_URL=${DT_API_URL}
+      - DT_API_TOKEN=${DT_API_TOKEN}
+      - ONEAGENT_INSTALLER_SCRIPT_URL=${ONEAGENT_INSTALLER_SCRIPT_URL}
+      - DT_HOST_ID=${DT_HOST_ID:-saga-local-dev}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /proc:/host/proc
+      - /sys:/host/sys
+    networks:
+      - saga-network
+    restart: always
+
 volumes:
   postgres_data:
   grafana_data:
+  elasticsearch_data:
 
 
 networks:
